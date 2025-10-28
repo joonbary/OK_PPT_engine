@@ -117,27 +117,44 @@ class StrategistAgent(BaseAgentV2):
             logger.error(f"Strategist processing failed: {e}")
             raise
     
-    async def _analyze_document(self, document: str) -> Dict:
+            async def _analyze_document(self, document: str) -> Dict:
         lang = (getattr(self, 'language', 'ko') or 'ko').lower()
-        lang_inst = '紐⑤뱺 ?묐떟? ?쒓뎅?대줈 ?묒꽦.' if lang.startswith('ko') else 'Respond in the specified language.'
-        prompt = f"""{lang_inst}\n?ㅼ쓬 鍮꾩쫰?덉뒪 臾몄꽌瑜?遺꾩꽍?섏뿬 ?듭떖 ?붿냼瑜?JSON?쇰줈 異붿텧?섏꽭??\n\n臾몄꽌:\n{document}\n\n?ㅼ쓬 ?뺤떇??JSON?쇰줈 諛섑솚?섏꽭??\n{{\n  "key_message": "臾몄꽌???듭떖 硫붿떆吏 (??臾몄옣?쇰줈 ?붿빟)",\n  "data_points": ["二쇱슂 ?곗씠?고룷?명듃 1", "二쇱슂 ?곗씠?고룷?명듃 2", ...],\n  "target_audience": "寃쎌쁺吏??ㅻТ吏??ъ옄???쇰컲?以?以??섎굹",\n  "purpose": "?섏궗寃곗젙/?뺣낫怨듭쑀/???援먯쑁 以??섎굹",\n  "context": "援ъ껜?곸씤 鍮꾩쫰?덉뒪 ?곹솴 ?ㅻ챸",\n  "industry": "?대떦 ?곗뾽 遺꾩빞"\n}}\n\nJSON留?諛섑솚?섍퀬 ?ㅻⅨ ?ㅻ챸? ?ｌ? 留덉꽭??"""
-
+        lang_inst = '모든 답변은 한국어로 작성.' if lang.startswith('ko') else 'Respond in the specified language.'
+        prompt = (
+            f"{lang_inst}\n"
+            "다음 비즈니스 문서를 분석하여 핵심 요소를 JSON으로 추출하세요.\n\n"
+            f"문서:\n{document}\n\n"
+            "반환 형식(JSON):\n{\n"
+            "  \"key_message\": \"핵심 메시지(한 문장 요약)\",\n"
+            "  \"data_points\": [\"주요 데이터 포인트 1\", \"주요 데이터 포인트 2\"],\n"
+            "  \"target_audience\": \"대상 독자\",\n"
+            "  \"purpose\": \"의도\",\n"
+            "  \"context\": \"맥락\",\n"
+            "  \"industry\": \"업종\"\n"
+            "}\n\nJSON만 반환하세요."
+        )
         response = await self.llm_client.generate(prompt)
-        
+        def _extract_json_block(text: str) -> str:
+            if not text:
+                return ""
+            t = text.strip()
+            if "```json" in t:
+                s = t.find("```json") + 7
+                e = t.find("```", s)
+                if e > s:
+                    return t[s:e].strip()
+            first = t.find("{"); last = t.rfind("}")
+            if first != -1 and last != -1 and last > first:
+                return t[first:last+1].strip()
+            return t
         try:
-            if "```json" in response:
-                json_start = response.find("```json") + 7
-                json_end = response.find("```", json_start)
-                response = response[json_start:json_end].strip()
-            
-            analysis = json.loads(response)
-            logger.debug(f"Document analysis result: {analysis}")
+            raw = response if isinstance(response, str) else json.dumps(response, ensure_ascii=False)
+            json_str = _extract_json_block(raw)
+            analysis = json.loads(json_str)
             return analysis
-        except (json.JSONDecodeError, Exception) as e:
-            logger.error(f"Failed to parse LLM response: {e}. Response: {response[:200] if response else 'Empty'}")
-            raise RuntimeError(f"Document analysis failed - LLM response parsing error: {e}")
-    
-    def _select_framework(self, analysis: Dict) -> Dict:
+        except Exception as e:
+            logger.error(f"Failed to parse LLM response: {e}. Response(head): {raw[:200] if isinstance(raw,str) else str(raw)[:200]}")
+            raise RuntimeError(f"Document analysis failed - LLM response parsing error: {e}")def _select_framework(self, analysis: Dict) -> Dict:
         context = (analysis.get('context') or '').lower()
         purpose = (analysis.get('purpose') or '').lower()
         key = 'CUSTOM'
@@ -264,13 +281,24 @@ class StrategistAgent(BaseAgentV2):
 
         response = await self.llm_client.generate(prompt)
         
+        def _extract_json_array(text: str) -> str:
+            if not text:
+                return ""
+            t = text.strip()
+            if "```json" in t:
+                s = t.find("```json") + 7
+                e = t.find("```", s)
+                if e > s:
+                    return t[s:e].strip()
+            first = t.find("[")
+            last = t.rfind("]")
+            if first != -1 and last != -1 and last > first:
+                return t[first:last+1].strip()
+            return t
+
         try:
-            if "```json" in response:
-                json_start = response.find("```json") + 7
-                json_end = response.find("```", json_start)
-                response = response[json_start:json_end].strip()
-            
-            outline = json.loads(response)
+            json_str = _extract_json_array(response)
+            outline = json.loads(json_str)
             # Heuristic enrichment: content_type/layout_type if missing
             enriched = []
             for s in outline:
@@ -312,7 +340,7 @@ class StrategistAgent(BaseAgentV2):
             
             return outline
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse slide outline: {e}")
+            logger.error(f"Failed to parse slide outline: {e}; head={response[:200] if response else 'Empty'}")
             raise RuntimeError(f"Slide outline generation failed: {e}")
     
     def _determine_slide_type(self, category: str) -> str:
@@ -324,4 +352,6 @@ class StrategistAgent(BaseAgentV2):
         if any(k in cat_lower for k in ['customers', 'opportunities']):
             return "Market Analysis"
         return "Strategic Analysis"
+
+
 
