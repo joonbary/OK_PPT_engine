@@ -256,6 +256,29 @@ class StrategistAgent(BaseAgentV2):
     
     async def _create_pyramid_structure(self, analysis: Dict, framework: Dict) -> Dict:
         prompt = f"""?ㅼ쓬 鍮꾩쫰?덉뒪 遺꾩꽍??諛뷀깢?쇰줈 ?쇰씪誘몃뱶 援ъ“瑜??앹꽦?섏꽭??\n\n?듭떖 硫붿떆吏: {analysis['key_message']}\n?꾨젅?꾩썙?? {framework['framework_name']} - {framework['description']}\n移댄뀒怨좊━: {', '.join(framework['categories'])}\n二쇱슂 ?곗씠?? {', '.join(analysis.get('data_points', [])[:5])}\n\n?쇰씪誘몃뱶 援ъ“瑜??ㅼ쓬 JSON ?뺤떇?쇰줈 ?앹꽦?섏꽭??\n{{\n  "top_message": "?듭떖 硫붿떆吏 (So What??紐낇솗???≪뀡 吏?μ쟻 臾몄옣)",\n  "supporting_arguments": [\n    {{\n      "argument": "二쇱슂 二쇱옣 1 (?꾨젅?꾩썙??移댄뀒怨좊━? ?곌껐)",\n      "category": "{framework['categories'][0]}",\n      "evidence": [\n        "吏吏 洹쇨굅 1 (援ъ껜???섏튂 ?ы븿)",\n        "吏吏 洹쇨굅 2",\n        "吏吏 洹쇨굅 3"\n      ]\n    }},\n    ... (珥?{len(framework['categories'])}媛쒖쓽 二쇱옣)\n  ]\n}}\n\n?붽뎄?ы빆:\n1. 媛?移댄뀒怨좊━蹂꾨줈 1媛쒖쓽 二쇱슂 二쇱옣 ?앹꽦\n2. 媛?二쇱옣? 紐낇솗??So What ?ы븿\n3. 吏吏 洹쇨굅???뺣웾???섏튂 ?ы븿\n4. MECE ?먯튃 以??(?곹샇 諛고??곸씠硫??꾩껜瑜??ш큵)\n\nJSON留?諛섑솚?섏꽭??"""
+        # Override prompt with ASCII-only safe version to avoid encoding issues
+        cats = [str(c) for c in framework.get('categories', [])]
+        fw_name = framework.get('framework_name') or framework.get('name') or 'CUSTOM'
+        fw_desc = framework.get('description', '')
+        first_cat = cats[0] if cats else 'Category'
+        dp_src = analysis.get('data_points') or []
+        dps = [str(x) for x in (dp_src if isinstance(dp_src, list) else [dp_src])][:5]
+        prompt = (
+            "Build a pyramid structure as JSON.\n\n"
+            f"Top message: {analysis.get('key_message','')}\n"
+            f"Framework: {fw_name} - {fw_desc}\n"
+            f"Categories: {', '.join(cats)}\n"
+            f"Key points: {', '.join(dps)}\n\n"
+            "Return JSON only in the format:\n{\n"
+            "  \"top_message\": \"So-What oriented single sentence\",\n"
+            "  \"supporting_arguments\": [\n"
+            "    {\n"
+            "      \"argument\": \"Main claim 1\",\n"
+            f"      \"category\": \"{first_cat}\",\n"
+            "      \"evidence\": [\"evidence 1\", \"evidence 2\"]\n"
+            "    }\n"
+            "  ]\n}\n"
+        )
 
         response = await self.llm_client.generate(prompt)
         
@@ -280,6 +303,13 @@ class StrategistAgent(BaseAgentV2):
     
     async def _create_slide_outline(self, pyramid: Dict, framework: Dict, num_slides: int) -> List[Dict]:
         prompt = f"""?ㅼ쓬 ?쇰씪誘몃뱶 援ъ“瑜?諛뷀깢?쇰줈 {num_slides}?μ쓽 ?щ씪?대뱶 ?꾩썐?쇱씤???앹꽦?섏꽭??\n\n?듭떖 硫붿떆吏: {pyramid['top_message']}\n二쇱슂 二쇱옣: {len(pyramid['supporting_arguments'])}媛? ?꾨젅?꾩썙?? {framework['framework_name']}\n\n?щ씪?대뱶 援ъ“ (SCR):\n1. Title Slide (1??\n2. Executive Summary (1??\n3-4. Situation (?곹솴) - 2??n5-6. Complication (臾몄젣) - 2??n7-{num_slides-3}. Resolution (?닿껐梨? - {num_slides-8}??(?꾨젅?꾩썙??移댄뀒怨좊━蹂?\n{num_slides-2}-{num_slides-1}. Recommendation (沅뚭퀬) - 2??n{num_slides}. Next Steps (?ㅼ쓬 ?④퀎) - 1??n\n?ㅼ쓬 JSON 諛곗뿴濡?諛섑솚?섏꽭??\n[\n  {{\n    "slide_number": 1,\n    "slide_type": "title",\n    "title": "?꾨젅?좏뀒?댁뀡 ?쒕ぉ",\n    "headline": "{pyramid['top_message']}",\n    "content_type": "text",\n    "key_points": [],\n    "data_requirements": [],\n    "layout_suggestion": "title_slide",\n    "category": "intro"\n  }},\n  {{\n    "slide_number": 2,\n    "slide_type": "executive_summary",\n    "title": "Executive Summary",\n    "headline": "?듭떖 硫붿떆吏 (?뺣웾?붾맂 So What)",\n    "content_type": "text",\n    "key_points": ["?듭떖 洹쇨굅 1", "?듭떖 洹쇨굅 2", "?듭떖 洹쇨굅 3"],\n    "data_requirements": ["二쇱슂 ?섏튂 1", "二쇱슂 ?섏튂 2"],\n    "layout_suggestion": "dual_header",\n    "category": "summary"\n  }},\n  ... ({num_slides}媛??щ씪?대뱶)\n]\n\n?붽뎄?ы빆:\n1. 媛??щ씪?대뱶??紐낇솗??So What ?ㅻ뱶?쇱씤\n2. ?꾨젅?꾩썙??移댄뀒怨좊━ 洹좊벑 遺꾨같\n3. ?곗씠???쒓컖?붽? ?꾩슂???щ씪?대뱶??content_type? 'chart'濡?n4. ?덉씠?꾩썐? 'title_slide', 'dual_header', 'three_column', 'matrix', 'waterfall' 以??좏깮\n\nJSON 諛곗뿴留?諛섑솚?섏꽭??"""
+        # Override prompt with ASCII-only outline request to avoid encoding issues
+        prompt = (
+            f"Create a {num_slides}-slide outline as a JSON array, based on the pyramid.\n\n"
+            f"Top message: {pyramid.get('top_message','')}\n"
+            f"Supporting arguments: {len(pyramid.get('supporting_arguments', []))}\n\n"
+            "Return JSON array only. Example element:\n[\n  {\n    \"slide_number\": 1,\n    \"slide_type\": \"title\",\n    \"title\": \"Title\",\n    \"headline\": \"...\",\n    \"content_type\": \"text\",\n    \"key_points\": [],\n    \"data_requirements\": [],\n    \"layout_suggestion\": \"title_slide\",\n    \"category\": \"intro\"\n  }\n]\n"
+        )
 
         response = await self.llm_client.generate(prompt)
         
