@@ -58,6 +58,7 @@ class PhaseManager:
                     "industry": "",
                 },
                 max_tokens=1200,
+                use_cache=False,
             )
             # Normalize
             dp_list = obj.get('data_points') or []
