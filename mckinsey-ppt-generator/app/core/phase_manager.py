@@ -159,37 +159,13 @@ class PhaseManager:
         await self.state.set_status(project_id, PhaseName.STRUCTURE, PhaseStatus.RUNNING)
         t0 = perf_counter()
         try:
-            try:
-                from app.agents.strategist_agent import StrategistAgent
-                agent = StrategistAgent()
-                res = await agent.process(input_data={"document": document, "num_slides": num_slides}, context={"language": language})
-                out = {
-                    "mece_segments": res.get("mece_segments"),
-                    "slide_outline": res.get("slide_outline") or res.get("outline"),
-                }
-            except Exception:
-                # Fallback: simple 3-part split + outline
-                chunk = max(1, len(document)//3)
-                segs = [
-                    {"category": "Company", "content": document[:chunk]},
-                    {"category": "Competitors", "content": document[chunk:2*chunk]},
-                    {"category": "Customers", "content": document[2*chunk:]},
-                ]
-                outline = [
-                    {"slide_number": 1, "type": "Title", "content_focus": "Main Topic", "mece_segment": None},
-                    {"slide_number": 2, "type": "Executive Summary", "content_focus": "Overall Summary", "mece_segment": "ALL"},
-                ]
-                needed = max(0, num_slides - 3)
-                for i in range(needed):
-                    seg = segs[i % len(segs)]
-                    outline.append({
-                        "slide_number": 3 + i,
-                        "type": "Market Analysis" if seg["category"] == "Customers" else ("Strategic Options" if seg["category"] == "Competitors" else "Internal Analysis"),
-                        "content_focus": seg["category"],
-                        "mece_segment": seg["content"],
-                    })
-                outline.append({"slide_number": max(3, num_slides), "type": "Recommendations", "content_focus": "Recommendations", "mece_segment": "ALL"})
-                out = {"mece_segments": segs, "slide_outline": outline}
+            from app.agents.strategist_agent import StrategistAgent
+            agent = StrategistAgent()
+            res = await agent.process(input_data={"document": document, "num_slides": num_slides}, context={"language": language})
+            out = {
+                "mece_segments": res.get("mece_segments"),
+                "slide_outline": res.get("slide_outline") or res.get("outline"),
+            }
             await self.state.set_status(
                 project_id, PhaseName.STRUCTURE, PhaseStatus.COMPLETED, result=out, meta={"elapsed": perf_counter() - t0}
             )
