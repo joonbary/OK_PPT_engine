@@ -8,7 +8,11 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from frontend.components.progress_tracker import render_progress_tracker
+try:
+    from frontend.components.progress_tracker import render_progress_tracker
+except Exception:
+    def render_progress_tracker(current_stage: int = 2):
+        st.caption(f"Stage {current_stage} 진행 중")
 
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000')
 
@@ -101,4 +105,3 @@ if st.session_state['stage2_result']:
             st.switch_page("pages/3_✍️_콘텐츠생성.py")
         except Exception:
             pass
-
