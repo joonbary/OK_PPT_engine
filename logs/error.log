@@ -1,0 +1,35 @@
+2025-10-23 11:55:08 | ERROR    | app.services.slide_fixer:fix_presentation:1557 - Error fixing presentation: 'ValidationResult' object has no attribute 'get'
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:199 - Error fixing margin_issues: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-23 12:10:34 | ERROR    | app.services.slide_fixer:fix_slide:233 - Re-fix error: SlideFixer._fix_margins() takes 3 positional arguments but 4 were given
+2025-10-27 09:29:10 | ERROR    | app.services.slide_validator:_check_empty_content:1570 - Error in empty content check: shape does not contain a chart
+2025-10-27 09:29:10 | ERROR    | app.services.slide_validator:_check_layout_integrity:589 - Error in layout integrity check: shape does not contain a chart
+2025-10-27 09:29:10 | ERROR    | app.services.slide_validator:_check_empty_content:1570 - Error in empty content check: shape does not contain a chart
+2025-10-27 09:29:10 | ERROR    | app.services.slide_validator:_check_layout_integrity:589 - Error in layout integrity check: shape does not contain a chart
+2025-10-27 09:29:10 | ERROR    | app.services.slide_validator:_check_empty_content:1570 - Error in empty content check: shape does not contain a chart
+2025-10-27 09:29:10 | ERROR    | app.services.slide_validator:_check_layout_integrity:589 - Error in layout integrity check: shape does not contain a chart

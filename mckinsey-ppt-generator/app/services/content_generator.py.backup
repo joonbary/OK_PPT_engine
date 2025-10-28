@@ -1,0 +1,1197 @@
+"""
+Content Generator for End-to-End PPT Generation Pipeline
+Task 4.1 - Multi-Agent 기반 슬라이드 콘텐츠 생성
+
+슬라이드 콘텐츠 생성기:
+- 에이전트 기반 콘텐츠 생성
+- MECE 구조 자동 적용
+- 데이터 시각화 선택
+- McKinsey 스타일 가이드 준수
+"""
+
+import asyncio
+import logging
+import re
+from typing import Dict, List, Optional, Any, Tuple
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
+from pptx.dml.color import RGBColor
+
+from app.models.workflow_models import SlideGenerationSpec
+from app.services.headline_generator import HeadlineGenerator
+from app.services.insight_ladder import InsightLadder, InsightEnhancer
+
+
+class ContentGenerator:
+    """
+    Multi-Agent 기반 슬라이드 콘텐츠 생성
+    
+    Pipeline:
+    1. Document Analysis - 문서 분석 및 구조화
+    2. Content Structuring - MECE/Pyramid 구조 적용
+    3. Slide Specification - 슬라이드별 상세 명세 생성
+    4. Content Generation - 실제 슬라이드 콘텐츠 생성
+    5. Visual Enhancement - 차트/이미지 추가
+    """
+    
+    def __init__(self):
+        """ContentGenerator 초기화"""
+        self.logger = logging.getLogger(__name__)
+        
+        # HeadlineGenerator 통합
+        self.headline_generator = HeadlineGenerator()
+        
+        # InsightLadder 통합
+        self.insight_ladder = InsightLadder()
+        self.insight_enhancer = InsightEnhancer()
+        
+        # McKinsey 표준 레이아웃 정의
+        self.layout_types = {
+            "title_slide": 0,
+            "title_and_content": 1,
+            "section_header": 2,
+            "two_content": 3,
+            "comparison": 4,
+            "content_with_caption": 5,
+            "blank": 6
+        }
+        
+        # McKinsey 표준 색상
+        self.mckinsey_colors = {
+            "primary": RGBColor(0, 118, 168),      # McKinsey Blue
+            "secondary": RGBColor(244, 118, 33),   # Orange
+            "text": RGBColor(83, 86, 90),          # Dark Gray
+            "positive": RGBColor(107, 166, 68),    # Green
+            "negative": RGBColor(227, 27, 35)      # Red
+        }
+        
+        # 에이전트 시뮬레이션 (실제 구현에서는 별도 에이전트 클래스 사용)
+        self._initialize_mock_agents()
+    
+    def _initialize_mock_agents(self):
+        """Mock 에이전트 초기화 (개발/테스트용)"""
+        self.mock_strategies = {
+            "business_growth": [
+                "Current State Analysis",
+                "Market Opportunity",
+                "Strategic Options",
+                "Recommended Approach",
+                "Implementation Plan",
+                "Expected Outcomes"
+            ],
+            "data_analysis": [
+                "Executive Summary",
+                "Data Overview",
+                "Key Findings",
+                "Detailed Analysis",
+                "Implications",
+                "Recommendations"
+            ],
+            "project_proposal": [
+                "Problem Statement",
+                "Proposed Solution", 
+                "Benefits & Impact",
+                "Implementation Timeline",
+                "Resource Requirements",
+                "Next Steps"
+            ]
+        }
+        
+        self.content_templates = {
+            "executive_summary": {
+                "title": "Executive Summary",
+                "bullets": [
+                    "Key business challenge and opportunity",
+                    "Recommended strategic approach",
+                    "Expected impact and benefits",
+                    "Critical success factors"
+                ]
+            },
+            "analysis": {
+                "title": "Analysis & Insights",
+                "bullets": [
+                    "Current situation assessment",
+                    "Key trends and drivers",
+                    "Performance gaps identified",
+                    "Root cause analysis"
+                ]
+            },
+            "recommendations": {
+                "title": "Recommendations",
+                "bullets": [
+                    "Strategic priority #1",
+                    "Strategic priority #2", 
+                    "Strategic priority #3",
+                    "Implementation approach"
+                ]
+            }
+        }
+    
+    async def generate(
+        self, 
+        document: str,
+        num_slides: int = 15,
+        target_audience: str = "executive",
+        presentation_purpose: str = "analysis"
+    ) -> Presentation:
+        """
+        문서에서 PPT 콘텐츠 생성
+        
+        Args:
+            document: 입력 문서 (텍스트)
+            num_slides: 생성할 슬라이드 수
+            target_audience: 타겟 청중
+            presentation_purpose: 프레젠테이션 목적
+        
+        Returns:
+            Presentation: 콘텐츠가 추가된 프레젠테이션
+        """
+        self.logger.info(f"Generating {num_slides} slides for {target_audience} audience")
+        
+        try:
+            # 1. 문서 분석 및 구조화
+            document_structure = await self._analyze_document(document, presentation_purpose)
+            
+            # 2. 슬라이드 명세 생성
+            slide_specs = await self._generate_slide_specifications(
+                document_structure, num_slides, target_audience
+            )
+            
+            # 3. 프레젠테이션 생성
+            presentation = await self._create_presentation(slide_specs, document)
+            
+            self.logger.info(f"Successfully generated presentation with {len(presentation.slides)} slides")
+            return presentation
+            
+        except Exception as e:
+            self.logger.error(f"Content generation failed: {e}", exc_info=True)
+            raise
+    
+    async def _analyze_document(self, document: str, purpose: str) -> Dict[str, Any]:
+        """
+        문서 분석 및 구조 추출
+        
+        Args:
+            document: 분석할 문서
+            purpose: 프레젠테이션 목적
+            
+        Returns:
+            Dict: 문서 구조 분석 결과
+        """
+        # 문서 기본 분석
+        word_count = len(document.split())
+        
+        # 키워드 추출 (간단한 구현)
+        keywords = self._extract_keywords(document)
+        
+        # 주제 분류
+        presentation_type = self._classify_presentation_type(document, keywords)
+        
+        # MECE 구조 선택
+        structure_template = self.mock_strategies.get(
+            presentation_type, self.mock_strategies["business_growth"]
+        )
+        
+        return {
+            "word_count": word_count,
+            "keywords": keywords,
+            "presentation_type": presentation_type,
+            "structure_template": structure_template,
+            "key_themes": self._identify_key_themes(document),
+            "data_points": self._extract_data_points(document)
+        }
+    
+    def _extract_keywords(self, document: str) -> List[str]:
+        """키워드 추출 (간단한 구현)"""
+        # 실제 구현에서는 NLP 라이브러리 사용
+        business_keywords = [
+            "매출", "성장", "전략", "시장", "고객", "수익", "경쟁", "혁신",
+            "디지털", "변화", "기회", "위험", "투자", "효율", "품질", "서비스",
+            "revenue", "growth", "strategy", "market", "customer", "profit"
+        ]
+        
+        keywords = []
+        document_lower = document.lower()
+        
+        for keyword in business_keywords:
+            if keyword in document_lower:
+                keywords.append(keyword)
+        
+        return keywords[:10]  # 상위 10개 키워드
+    
+    def _classify_presentation_type(self, document: str, keywords: List[str]) -> str:
+        """프레젠테이션 유형 분류"""
+        doc_lower = document.lower()
+        
+        if any(word in doc_lower for word in ["분석", "데이터", "조사", "analysis", "data"]):
+            return "data_analysis"
+        elif any(word in doc_lower for word in ["제안", "프로젝트", "proposal", "project"]):
+            return "project_proposal"
+        else:
+            return "business_growth"
+    
+    def _identify_key_themes(self, document: str) -> List[str]:
+        """주요 테마 식별"""
+        # 간단한 테마 추출 (실제로는 더 정교한 분석 필요)
+        themes = []
+        doc_lower = document.lower()
+        
+        theme_patterns = {
+            "Digital Transformation": ["디지털", "혁신", "자동화", "digital", "automation"],
+            "Customer Experience": ["고객", "서비스", "만족", "customer", "experience"],
+            "Operational Excellence": ["운영", "효율", "프로세스", "operation", "efficiency"],
+            "Growth Strategy": ["성장", "확장", "시장", "growth", "expansion", "market"],
+            "Cost Optimization": ["비용", "절감", "최적화", "cost", "optimization"]
+        }
+        
+        for theme, patterns in theme_patterns.items():
+            if any(pattern in doc_lower for pattern in patterns):
+                themes.append(theme)
+        
+        return themes[:3]  # 상위 3개 테마
+    
+    def _extract_data_points(self, document: str) -> List[Dict[str, Any]]:
+        """데이터 포인트 추출"""
+        import re
+        
+        # 숫자와 퍼센테이지 추출
+        numbers = re.findall(r'\d+(?:\.\d+)?%?', document)
+        
+        data_points = []
+        for i, number in enumerate(numbers[:5]):  # 상위 5개
+            data_points.append({
+                "value": number,
+                "context": f"Key metric {i+1}",
+                "type": "percentage" if "%" in number else "number"
+            })
+        
+        return data_points
+    
+    async def _generate_slide_specifications(
+        self, 
+        structure: Dict[str, Any], 
+        num_slides: int, 
+        audience: str
+    ) -> List[SlideGenerationSpec]:
+        """슬라이드 명세 생성"""
+        
+        slide_specs = []
+        structure_template = structure["structure_template"]
+        
+        # 제목 슬라이드
+        slide_specs.append(SlideGenerationSpec(
+            slide_number=1,
+            title="Strategic Analysis & Recommendations",
+            content_type="title",
+            content={"subtitle": f"Presentation for {audience} audience"},
+            layout_type="title_slide",
+            priority=1
+        ))
+        
+        # 핵심 슬라이드들 생성
+        content_slides = min(num_slides - 2, len(structure_template))  # 제목, 결론 제외
+        
+        for i, section_title in enumerate(structure_template[:content_slides], 2):
+            # 슬라이드 타입 결정
+            content_type = self._determine_content_type(section_title, i, num_slides)
+            
+            # 콘텐츠 생성
+            content = await self._generate_slide_content(
+                section_title, content_type, structure, i
+            )
+            
+            slide_specs.append(SlideGenerationSpec(
+                slide_number=i,
+                title=section_title,
+                content_type=content_type,
+                content=content,
+                layout_type=self._select_layout_type(content_type),
+                priority=1 if i <= 4 else 2  # 첫 4장은 고우선순위
+            ))
+        
+        # 결론 슬라이드 (마지막)
+        if num_slides > len(slide_specs):
+            slide_specs.append(SlideGenerationSpec(
+                slide_number=num_slides,
+                title="Next Steps & Recommendations",
+                content_type="conclusion",
+                content=self._generate_conclusion_content(structure),
+                layout_type="title_and_content",
+                priority=1
+            ))
+        
+        return slide_specs
+    
+    def _determine_content_type(self, title: str, slide_num: int, total_slides: int) -> str:
+        """콘텐츠 타입 결정"""
+        title_lower = title.lower()
+        
+        if slide_num == 1:
+            return "title"
+        elif slide_num == total_slides:
+            return "conclusion"
+        elif "summary" in title_lower or "overview" in title_lower:
+            return "summary"
+        elif any(word in title_lower for word in ["analysis", "data", "findings"]):
+            return "chart"
+        elif any(word in title_lower for word in ["comparison", "vs", "versus"]):
+            return "comparison"
+        else:
+            return "text"
+    
+    def _select_layout_type(self, content_type: str) -> str:
+        """콘텐츠 타입에 따른 레이아웃 선택"""
+        layout_mapping = {
+            "title": "title_slide",
+            "summary": "title_and_content",
+            "text": "title_and_content", 
+            "chart": "content_with_caption",
+            "comparison": "two_content",
+            "conclusion": "title_and_content"
+        }
+        
+        return layout_mapping.get(content_type, "title_and_content")
+    
+    async def _generate_slide_content(
+        self, 
+        title: str, 
+        content_type: str, 
+        structure: Dict[str, Any], 
+        slide_num: int
+    ) -> Dict[str, Any]:
+        """슬라이드 콘텐츠 생성"""
+        
+        if content_type == "summary":
+            return self._generate_summary_content(structure)
+        elif content_type == "chart":
+            return self._generate_chart_content(structure, slide_num)
+        elif content_type == "comparison":
+            return self._generate_comparison_content(structure)
+        else:
+            return self._generate_text_content(title, structure)
+    
+    def _generate_summary_content(self, structure: Dict[str, Any]) -> Dict[str, Any]:
+        """요약 콘텐츠 생성"""
+        template = self.content_templates["executive_summary"]
+        
+        return {
+            "bullets": template["bullets"],
+            "key_metrics": structure.get("data_points", [])[:3],
+            "themes": structure.get("key_themes", [])
+        }
+    
+    def _generate_text_content(self, title: str, structure: Dict[str, Any]) -> Dict[str, Any]:
+        """텍스트 콘텐츠 생성 (InsightLadder 활용)"""
+        # 데이터 포인트에서 인사이트 생성 시도
+        data_points = structure.get("data_points", [])
+        
+        if data_points and len(data_points) > 0:
+            # InsightLadder용 데이터 준비
+            insight_data = {
+                "metric": title.split()[0] if title else "지표",
+                "value": float(data_points[0].get("value", "100").replace("%", "")) if data_points else 100,
+                "period": "현재",
+                "unit": ""
+            }
+            
+            # 두 번째 데이터 포인트가 있으면 이전값으로 사용
+            if len(data_points) > 1:
+                try:
+                    prev_val = float(data_points[1].get("value", "90").replace("%", ""))
+                    insight_data["previous_value"] = prev_val
+                except:
+                    pass
+            
+            # 4단계 인사이트 생성
+            try:
+                insights = self.insight_ladder.climb(insight_data)
+                if len(insights) >= 3:
+                    # Level 2-4 인사이트를 불릿으로 사용
+                    bullets = [
+                        insights[1].statement,  # Comparison
+                        insights[2].statement,  # Implication
+                        insights[3].statement if len(insights) > 3 else "전략적 접근 필요"
+                    ]
+                else:
+                    raise Exception("Not enough insights")
+            except:
+                # 폴백: 기본 불릿 포인트
+                bullets = [
+                    f"Key insight related to {title.lower()}",
+                    f"Supporting evidence and data analysis",
+                    f"Implications for business strategy",
+                    f"Recommended actions and next steps"
+                ]
+        else:
+            # 데이터가 없을 때 기본 불릿
+            bullets = [
+                f"Key insight related to {title.lower()}",
+                f"Supporting evidence and data analysis",
+                f"Implications for business strategy",
+                f"Recommended actions and next steps"
+            ]
+        
+        # 키워드 기반 커스터마이징
+        keywords = structure.get("keywords", [])
+        if keywords and not data_points:
+            bullets[0] = f"Analysis of {', '.join(keywords[:2])} trends"
+        
+        return {
+            "bullets": bullets[:4],  # 최대 4개 불릿
+            "supporting_data": structure.get("data_points", [])[:2]
+        }
+    
+    def _generate_chart_content(self, structure: Dict[str, Any], slide_num: int) -> Dict[str, Any]:
+        """차트 콘텐츠 생성 (InsightLadder로 인사이트 강화)"""
+        data_points = structure.get("data_points", [])
+        
+        # 차트 데이터 생성 (mock)
+        chart_data = {
+            "type": "column",
+            "title": f"Key Performance Metrics",
+            "categories": ["Q1", "Q2", "Q3", "Q4"],
+            "series": [
+                {"name": "Actual", "values": [85, 92, 88, 95]},
+                {"name": "Target", "values": [80, 85, 90, 90]}
+            ]
+        }
+        
+        # InsightLadder로 차트 인사이트 생성
+        insight_data = {
+            "metric": "성과",
+            "value": 95,  # Q4 실적
+            "previous_value": 85,  # Q1 실적
+            "benchmark": 90,  # 목표값
+            "period": "Q4",
+            "drivers": {"운영 개선": 60, "시장 확대": 40}
+        }
+        
+        try:
+            insights = self.insight_ladder.climb(insight_data)
+            if len(insights) >= 3:
+                # Level 2-4 인사이트를 차트 인사이트로 사용
+                chart_insights = [
+                    insights[1].statement,  # Comparison
+                    insights[2].statement,  # Implication  
+                    insights[3].statement if len(insights) > 3 else "지속적 개선 필요"
+                ]
+            else:
+                raise Exception("Not enough insights")
+        except:
+            # 폴백: 기본 인사이트
+            chart_insights = [
+                "Performance exceeded targets in Q2 and Q4",
+                "Opportunity for improvement in Q3",
+                "Overall trend shows positive growth"
+            ]
+        
+        return {
+            "chart": chart_data,
+            "insights": chart_insights
+        }
+    
+    def _generate_comparison_content(self, structure: Dict[str, Any]) -> Dict[str, Any]:
+        """비교 콘텐츠 생성"""
+        return {
+            "option_a": {
+                "title": "Current Approach",
+                "points": [
+                    "Established processes",
+                    "Known risks and outcomes",
+                    "Incremental improvements"
+                ]
+            },
+            "option_b": {
+                "title": "Recommended Approach", 
+                "points": [
+                    "Innovative solutions",
+                    "Higher potential returns",
+                    "Strategic differentiation"
+                ]
+            }
+        }
+    
+    def _generate_conclusion_content(self, structure: Dict[str, Any]) -> Dict[str, Any]:
+        """결론 콘텐츠 생성"""
+        template = self.content_templates["recommendations"]
+        
+        return {
+            "bullets": template["bullets"],
+            "next_steps": [
+                "Immediate actions (0-30 days)",
+                "Short-term initiatives (1-3 months)",
+                "Long-term strategy (3-12 months)"
+            ],
+            "success_metrics": [
+                "Revenue growth: +15%",
+                "Cost reduction: -10%", 
+                "Customer satisfaction: +20%"
+            ]
+        }
+    
+    async def _create_presentation(
+        self, 
+        slide_specs: List[SlideGenerationSpec], 
+        original_document: str
+    ) -> Presentation:
+        """프레젠테이션 생성"""
+        
+        # 빈 프레젠테이션 생성
+        prs = Presentation()
+        
+        # 기본 슬라이드 삭제 (빈 프레젠테이션에는 1개 슬라이드가 있음)
+        if len(prs.slides._sldIdLst) > 0:
+            rId = prs.slides._sldIdLst[0].rId
+            prs.part.drop_rel(rId)
+            del prs.slides._sldIdLst[0]
+        
+        # 각 슬라이드 명세에 따라 슬라이드 생성
+        for spec in slide_specs:
+            slide = await self._create_slide(prs, spec)
+            
+        self.logger.info(f"Created presentation with {len(prs.slides)} slides")
+        return prs
+    
+    async def _create_slide(self, prs: Presentation, slide_spec: Any) -> 'Slide':
+        """
+        슬라이드 생성 (Actionability 강화 적용)
+        """
+        # 1. Actionability 강화
+        if isinstance(slide_spec, dict):
+            spec_dict = slide_spec.copy()
+        else:
+            spec_dict = slide_spec.__dict__.copy()
+        enhanced_spec = self._enhance_actionability(spec_dict)
+        
+        # 디버깅: 강화된 콘텐츠 로그
+        self.logger.info(f"Creating slide: {enhanced_spec.get('title', 'No title')}")
+        self.logger.info(f"Enhanced content: {enhanced_spec.get('content', [])}")
+        
+        # 2. 헤드라인 생성 (기존)
+        if self.headline_generator:
+            enhanced_title = self.headline_generator.generate(
+                enhanced_spec,
+                slide_type=enhanced_spec.get("type", "content")
+            )
+            enhanced_spec["title"] = enhanced_title
+        
+        # 3. 인사이트 강화 (기존)
+        if self.insight_enhancer:
+            enhanced_spec = self.insight_enhancer.enhance_slide(enhanced_spec)
+        
+        # 4. 슬라이드 생성
+        layout_idx = self.layout_types.get(enhanced_spec.get("layout_type", "title_and_content"), 1)
+        if layout_idx >= len(prs.slide_layouts):
+            layout_idx = 1
+        layout = prs.slide_layouts[layout_idx]
+        slide = prs.slides.add_slide(layout)
+        
+        # 5. 제목 추가
+        if "title" in enhanced_spec and slide.shapes.title:
+            slide.shapes.title.text = enhanced_spec["title"]
+            self.logger.info(f"Added title: {enhanced_spec['title']}")
+        
+        # 6. 콘텐츠 추가 (중요!)
+        if "content" in enhanced_spec:
+            content = enhanced_spec["content"]
+            
+            # 빈 콘텐츠 필터링
+            if isinstance(content, list):
+                content = [item for item in content if item and str(item).strip()]
+            
+            if content:  # 콘텐츠가 있을 때만 추가
+                self.logger.info(f"Adding {len(content) if isinstance(content, list) else 1} content items")
+                self._add_content_to_slide(slide, content)
+            else:
+                self.logger.warning("No content to add")
+        
+        return slide
+    
+    def _format_title(self, title_shape):
+        """제목 포맷팅"""
+        if title_shape.has_text_frame:
+            for paragraph in title_shape.text_frame.paragraphs:
+                paragraph.alignment = PP_ALIGN.LEFT
+                for run in paragraph.runs:
+                    run.font.name = "Arial"
+                    run.font.size = Pt(24)
+                    run.font.bold = True
+                    run.font.color.rgb = self.mckinsey_colors["text"]
+    
+    def _generate_mckinsey_headline(self, spec: SlideGenerationSpec) -> str:
+        """McKinsey 수준의 헤드라인 생성
+        
+        Args:
+            spec: 슬라이드 생성 명세
+            
+        Returns:
+            str: 개선된 헤드라인
+        """
+        try:
+            # HeadlineGenerator에 전달할 콘텐츠 준비
+            content_dict = {
+                "title": spec.title,
+                "body": self._extract_body_from_spec(spec),
+                "data": spec.content
+            }
+            
+            # 슬라이드 타입 매핑
+            slide_type = spec.content_type if spec.content_type in ["title", "content", "conclusion"] else "content"
+            
+            # McKinsey 헤드라인 생성
+            improved_headline = self.headline_generator.generate(
+                content=content_dict,
+                slide_type=slide_type
+            )
+            
+            self.logger.info(f"Generated McKinsey headline: {improved_headline}")
+            return improved_headline
+            
+        except Exception as e:
+            self.logger.warning(f"Headline generation failed, using original: {e}")
+            return spec.title  # 실패 시 원본 제목 사용
+    
+    def _extract_body_from_spec(self, spec: SlideGenerationSpec) -> str:
+        """SlideGenerationSpec에서 본문 텍스트 추출
+        
+        Args:
+            spec: 슬라이드 생성 명세
+            
+        Returns:
+            str: 추출된 본문 텍스트
+        """
+        content = spec.content
+        
+        # 콘텐츠 타입별로 본문 추출
+        if isinstance(content, dict):
+            body_parts = []
+            
+            # 불릿 포인트 추출
+            if "bullets" in content:
+                body_parts.extend(content["bullets"])
+            
+            # 차트 인사이트 추출
+            if "insights" in content:
+                body_parts.extend(content["insights"])
+            
+            # 비교 콘텐츠 추출
+            if "option_a" in content and "option_b" in content:
+                if "points" in content["option_a"]:
+                    body_parts.extend(content["option_a"]["points"])
+                if "points" in content["option_b"]:
+                    body_parts.extend(content["option_b"]["points"])
+            
+            # 다음 단계 추출
+            if "next_steps" in content:
+                body_parts.extend(content["next_steps"])
+            
+            # 성공 메트릭 추출
+            if "success_metrics" in content:
+                body_parts.extend(content["success_metrics"])
+            
+            return " ".join(body_parts)
+        
+        elif isinstance(content, str):
+            return content
+        
+        else:
+            return ""
+    
+    async def _add_title_content(self, slide, spec: SlideGenerationSpec):
+        """제목 슬라이드 콘텐츠 추가"""
+        # 부제목 추가
+        if len(slide.placeholders) > 1:
+            subtitle = slide.placeholders[1]
+            subtitle.text = spec.content.get("subtitle", "Strategic Consulting Presentation")
+            
+            # 부제목 포맷팅
+            if subtitle.has_text_frame:
+                for paragraph in subtitle.text_frame.paragraphs:
+                    paragraph.alignment = PP_ALIGN.LEFT
+                    for run in paragraph.runs:
+                        run.font.name = "Arial"
+                        run.font.size = Pt(16)
+                        run.font.color.rgb = self.mckinsey_colors["text"]
+    
+    async def _add_text_content(self, slide, spec: SlideGenerationSpec):
+        """텍스트 콘텐츠 추가 (강화 버전)"""
+        content = spec.content
+        
+        # content가 dict이면 강화된 content 사용
+        if isinstance(content, dict):
+            # bullets가 있으면 강화
+            if "bullets" in content:
+                enhanced_bullets = self._enhance_bullet_points(content["bullets"])
+                content["bullets"] = enhanced_bullets
+        
+        # 새로운 메서드로 콘텐츠 추가
+        self._add_content_to_slide(slide, content)
+    
+    async def _add_chart_content(self, slide, spec: SlideGenerationSpec):
+        """차트 콘텐츠 추가 (placeholder)"""
+        # 실제 구현에서는 python-pptx의 차트 기능 사용
+        content = spec.content
+        
+        # 차트 placeholder 텍스트 추가
+        for placeholder in slide.placeholders:
+            if placeholder.placeholder_format.type == 2:  # 본문
+                if placeholder.has_text_frame:
+                    placeholder.text = "[Chart: " + content.get("chart", {}).get("title", "Data Visualization") + "]"
+                break
+        
+        # 인사이트 추가
+        insights = content.get("insights", [])
+        if insights and len(slide.placeholders) > 2:
+            notes_placeholder = slide.placeholders[-1]
+            if notes_placeholder.has_text_frame:
+                text_frame = notes_placeholder.text_frame
+                text_frame.clear()
+                
+                for i, insight in enumerate(insights):
+                    if i == 0:
+                        p = text_frame.paragraphs[0]
+                    else:
+                        p = text_frame.add_paragraph()
+                    
+                    p.text = insight
+                    p.level = 0
+    
+    async def _add_comparison_content(self, slide, spec: SlideGenerationSpec):
+        """비교 콘텐츠 추가"""
+        content = spec.content
+        
+        # 두 컬럼 레이아웃 처리
+        placeholders = [p for p in slide.placeholders if p.placeholder_format.type == 2]
+        
+        if len(placeholders) >= 2:
+            # 왼쪽 컬럼 (Option A)
+            option_a = content.get("option_a", {})
+            left_placeholder = placeholders[0]
+            if left_placeholder.has_text_frame:
+                left_placeholder.text = option_a.get("title", "Option A")
+                text_frame = left_placeholder.text_frame
+                
+                for point in option_a.get("points", []):
+                    p = text_frame.add_paragraph()
+                    p.text = point
+                    p.level = 1
+            
+            # 오른쪽 컬럼 (Option B)
+            option_b = content.get("option_b", {})
+            right_placeholder = placeholders[1]
+            if right_placeholder.has_text_frame:
+                right_placeholder.text = option_b.get("title", "Option B")
+                text_frame = right_placeholder.text_frame
+                
+                for point in option_b.get("points", []):
+                    p = text_frame.add_paragraph()
+                    p.text = point
+                    p.level = 1
+    
+    async def _add_summary_content(self, slide, spec: SlideGenerationSpec):
+        """요약 콘텐츠 추가"""
+        await self._add_text_content(slide, spec)  # 텍스트 콘텐츠와 동일한 처리
+    
+    async def _add_conclusion_content(self, slide, spec: SlideGenerationSpec):
+        """결론 콘텐츠 추가"""
+        content = spec.content
+        
+        # 본문 플레이스홀더 찾기
+        content_placeholder = None
+        for placeholder in slide.placeholders:
+            if placeholder.placeholder_format.type == 2:
+                content_placeholder = placeholder
+                break
+        
+        if content_placeholder and content_placeholder.has_text_frame:
+            text_frame = content_placeholder.text_frame
+            text_frame.clear()
+            
+            # 주요 권고사항
+            bullets = content.get("bullets", [])
+            for i, bullet in enumerate(bullets):
+                if i == 0:
+                    p = text_frame.paragraphs[0]
+                else:
+                    p = text_frame.add_paragraph()
+                
+                p.text = bullet
+                p.level = 0
+            
+            # 다음 단계 추가
+            next_steps = content.get("next_steps", [])
+            if next_steps:
+                p = text_frame.add_paragraph()
+                p.text = "Next Steps:"
+                p.level = 0
+                
+                for step in next_steps:
+                    p = text_frame.add_paragraph()
+                    p.text = step
+                    p.level = 1
+    
+    def _enhance_actionability(self, slide_spec: Dict) -> Dict:
+        """
+        슬라이드의 실행 가능성 강화
+        
+        추가 요소:
+        1. 구체적 액션 아이템
+        2. 우선순위 명시
+        3. 정량적 목표
+        4. 실행 시점
+        
+        Args:
+            slide_spec: 원본 슬라이드 스펙
+        
+        Returns:
+            Dict: 강화된 슬라이드 스펙
+        """
+        content = slide_spec.get("content", {})
+        slide_type = slide_spec.get("content_type", "content")
+        
+        # 콘텐츠가 dict 형태인 경우
+        if isinstance(content, dict):
+            # bullets 강화
+            if "bullets" in content:
+                content["bullets"] = self._enhance_bullet_points(content["bullets"])
+            # body 강화
+            if "body" in content:
+                enhanced_body = self._enhance_text_content(content["body"])
+                content["body"] = enhanced_body
+            # next_steps 강화
+            if "next_steps" in content:
+                content["next_steps"] = self._enhance_next_steps(content["next_steps"])
+            
+            return {**slide_spec, "content": content}
+        
+        # 콘텐츠가 list인 경우
+        if isinstance(content, list):
+            enhanced_items = self._enhance_bullet_points(content)
+            return {**slide_spec, "content": enhanced_items}
+        
+        # 콘텐츠가 string인 경우
+        if isinstance(content, str):
+            enhanced_text = self._enhance_text_content(content)
+            return {**slide_spec, "content": enhanced_text}
+        
+        return slide_spec
+    
+    def _enhance_bullet_points(self, bullets: List[str]) -> List[str]:
+        """
+        불릿 포인트를 액션 아이템으로 강화
+        """
+        if not bullets:
+            return bullets
+        
+        # 액션 아이템 생성
+        action_items = self._generate_action_items(bullets)
+        # 우선순위 추가
+        prioritized_items = self._add_priorities(action_items)
+        # 정량화 강화
+        quantified_items = self._add_quantification(prioritized_items)
+        
+        return quantified_items
+    
+    def _enhance_text_content(self, text: str) -> str:
+        """
+        텍스트 콘텐츠에 실행 가능성 추가
+        """
+        # 이미 액션 키워드가 있는 경우
+        action_keywords = ["필요", "권고", "제안", "실행", "추진", "투자", "확대"]
+        if any(keyword in text for keyword in action_keywords):
+            # 정량화만 추가
+            if not re.search(r'\d+', text):
+                text = self._add_numeric_target(text)
+            return text
+        
+        # 액션 키워드 추가
+        if "성장" in text or "증가" in text:
+            text += " (30% 목표 달성 필요)"
+        elif "개선" in text or "효율" in text:
+            text += " (20% 개선 목표)"
+        else:
+            text += " (전략적 대응 필요)"
+        
+        return text
+    
+    def _enhance_next_steps(self, steps: List[str]) -> List[str]:
+        """
+        Next Steps 강화
+        """
+        if not steps:
+            return [
+                "[긴급] 1개월 내 실행 계획 수립",
+                "[핵심] 3개월 내 초기 성과 달성",
+                "[중요] 6개월 내 목표 50% 달성"
+            ]
+        
+        enhanced = []
+        priority_labels = ["[긴급]", "[핵심]", "[중요]"]
+        
+        for i, step in enumerate(steps):
+            if i < len(priority_labels):
+                if not any(label in step for label in ["[", "긴급", "핵심", "중요"]):
+                    enhanced.append(f"{priority_labels[i]} {step}")
+                else:
+                    enhanced.append(step)
+            else:
+                enhanced.append(step)
+        
+        return enhanced
+    
+    def _generate_action_items(self, items: List[str]) -> List[str]:
+        """
+        슬라이드에서 구체적 액션 아이템 생성
+        
+        패턴:
+        - "[동사] + [대상] + [방법/수단] + [목표]"
+        - 예: "신제품 R&D 투자를 50% 확대하여 시장 선점"
+        """
+        if not items:
+            return items
+        
+        action_items = []
+        
+        for item in items:
+            # 이미 액션 형태면 유지
+            if any(verb in item for verb in ["투자", "확대", "강화", "개선", "실행", "추진", "필요", "권고"]):
+                action_items.append(item)
+            else:
+                # 액션 형태로 변환
+                enhanced = self._convert_to_action(item)
+                action_items.append(enhanced)
+        
+        return action_items
+    
+    def _convert_to_action(self, statement: str) -> str:
+        """
+        일반 문장을 액션 아이템으로 변환
+        
+        변환 패턴:
+        - "매출 증가" → "매출 증가를 위한 신제품 라인 확대 추진"
+        - "시장 진출" → "해외 시장 진출을 3개국으로 확대 실행"
+        """
+        # 불릿 제거
+        statement = statement.lstrip("•- ").strip()
+        
+        # 액션 동사 매핑
+        action_patterns = {
+            "증가": "증가를 위한 전략적 투자 확대 필요",
+            "성장": "성장 가속화를 위한 핵심 영역 집중 투자 추진",
+            "개선": "개선을 위한 즉각적 실행 계획 수립 필요",
+            "확대": "확대 전략 수립 및 단계적 실행 필요",
+            "진출": "진출 가속화를 위한 선제적 투자 실행",
+            "강화": "강화를 위한 리소스 집중 배분 필요",
+            "절감": "절감을 위한 프로세스 최적화 실행",
+            "향상": "향상을 위한 전사적 노력 필요"
+        }
+        
+        for keyword, action in action_patterns.items():
+            if keyword in statement:
+                # 이미 액션 키워드 포함 시 유지
+                if any(word in statement for word in ["필요", "추진", "실행", "투자", "권고"]):
+                    return statement
+                # 액션 추가
+                return f"{statement} - {action}"
+        
+        # 기본 액션 추가
+        if not any(word in statement for word in ["필요", "추진", "실행", "투자", "권고"]):
+            return f"{statement} (즉시 실행 필요)"
+        
+        return statement
+    
+    def _add_priorities(self, items: List[str]) -> List[str]:
+        """
+        액션 아이템에 우선순위 추가
+        
+        패턴:
+        - [우선순위 1] 또는 [핵심] 또는 [긴급]
+        """
+        if not items:
+            return items
+        
+        # 우선순위 레이블
+        priority_labels = [
+            "[최우선]",
+            "[핵심]",
+            "[중요]",
+        ]
+        
+        prioritized = []
+        
+        for i, item in enumerate(items):
+            # 이미 우선순위 있으면 유지
+            if any(label in item for label in ["[", "1순위", "우선", "핵심", "중요", "긴급"]):
+                prioritized.append(item)
+            else:
+                # 상위 3개에만 우선순위 추가
+                if i < len(priority_labels):
+                    label = priority_labels[i]
+                    prioritized.append(f"{label} {item}")
+                else:
+                    prioritized.append(item)
+        
+        return prioritized
+    
+    def _add_quantification(self, items: List[str]) -> List[str]:
+        """
+        액션 아이템에 정량적 목표 추가
+        
+        패턴:
+        - "투자 확대" → "투자 50% 확대"
+        - "시장 진출" → "3개국 시장 진출"
+        """
+        quantified = []
+        
+        for item in items:
+            # 이미 숫자 포함 시 유지
+            if re.search(r'\d+', item):
+                quantified.append(item)
+            else:
+                # 정량화 추가
+                enhanced = self._add_numeric_target(item)
+                quantified.append(enhanced)
+        
+        return quantified
+    
+    def _add_numeric_target(self, item: str) -> str:
+        """
+        액션 아이템에 구체적 숫자 목표 추가
+        """
+        # 키워드별 기본 목표
+        numeric_targets = {
+            "투자": "50%",
+            "확대": "2배",
+            "개선": "30%",
+            "증가": "20%",
+            "절감": "15%",
+            "강화": "40%",
+            "진출": "3개국",
+            "성장": "25%",
+            "향상": "35%",
+            "축소": "20%",
+            "효율": "25%"
+        }
+        
+        for keyword, target in numeric_targets.items():
+            if keyword in item and not re.search(r'\d+', item):
+                # 키워드 바로 뒤에 숫자 추가
+                item = item.replace(keyword, f"{keyword} {target}")
+                break
+        
+        # 여전히 숫자가 없으면 끝에 추가
+        if not re.search(r'\d+', item):
+            item = f"{item} (30% 목표)"
+        
+        return item
+    
+    def _add_content_to_slide(self, slide: 'Slide', content: any):
+        """
+        슬라이드에 콘텐츠 추가 (개선 버전)
+        
+        불릿 포인트 형태로 정확히 추가
+        """
+        if not content:
+            return
+        
+        # 콘텐츠를 리스트로 변환
+        if isinstance(content, str):
+            content_list = [content]
+        elif isinstance(content, list):
+            content_list = content
+        else:
+            content_list = [str(content)]
+        
+        # 빈 항목 제거
+        content_list = [item for item in content_list if item and str(item).strip()]
+        
+        if not content_list:
+            return
+        
+        # 방법 1: placeholder 사용 (우선)
+        try:
+            # Title and Content 레이아웃의 placeholder 찾기
+            if len(slide.placeholders) > 1:
+                content_placeholder = slide.placeholders[1]
+                
+                if content_placeholder.has_text_frame:
+                    text_frame = content_placeholder.text_frame
+                    text_frame.clear()
+                    
+                    # 첫 번째 항목
+                    p = text_frame.paragraphs[0]
+                    p.text = content_list[0]
+                    p.level = 0
+                    
+                    # 나머지 항목
+                    for item in content_list[1:]:
+                        p = text_frame.add_paragraph()
+                        p.text = item
+                        p.level = 0
+                    
+                    self.logger.info(f"Added {len(content_list)} items via placeholder")
+                    return
+        except Exception as e:
+            self.logger.warning(f"Placeholder method failed: {e}")
+        
+        # 방법 2: 텍스트 박스 찾기 (폴백)
+        try:
+            for shape in slide.shapes:
+                # 제목이 아닌 텍스트 프레임 찾기
+                if shape.has_text_frame and shape != slide.shapes.title:
+                    text_frame = shape.text_frame
+                    
+                    # 기존 콘텐츠가 있으면 건너뛰기 (이미 추가됨)
+                    if text_frame.text.strip():
+                        continue
+                    
+                    text_frame.clear()
+                    
+                    # 첫 번째 항목
+                    p = text_frame.paragraphs[0]
+                    p.text = content_list[0]
+                    p.level = 0
+                    
+                    # 나머지 항목
+                    for item in content_list[1:]:
+                        p = text_frame.add_paragraph()
+                        p.text = item
+                        p.level = 0
+                    
+                    self.logger.info(f"Added {len(content_list)} items via text frame")
+                    return
+        except Exception as e:
+            self.logger.warning(f"Text frame method failed: {e}")
+        
+        # 방법 3: 새 텍스트 박스 생성 (최종 폴백)
+        try:
+            from pptx.util import Inches, Pt
+            from pptx.enum.text import PP_ALIGN
+            
+            # 텍스트 박스 위치 (제목 아래)
+            left = Inches(0.5)
+            top = Inches(2.0)
+            width = Inches(9.0)
+            height = Inches(5.0)
+            
+            # 텍스트 박스 추가
+            textbox = slide.shapes.add_textbox(left, top, width, height)
+            text_frame = textbox.text_frame
+            text_frame.word_wrap = True
+            
+            # 첫 번째 항목
+            p = text_frame.paragraphs[0]
+            p.text = content_list[0]
+            p.level = 0
+            
+            # 나머지 항목
+            for item in content_list[1:]:
+                p = text_frame.add_paragraph()
+                p.text = item
+                p.level = 0
+            
+            self.logger.info(f"Added {len(content_list)} items via new textbox")
+            
+        except Exception as e:
+            self.logger.error(f"All content addition methods failed: {e}")

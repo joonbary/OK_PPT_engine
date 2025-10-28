@@ -1,0 +1,896 @@
+먼저 생성된 PDF 파일을 확인해서 정확한 문제를 진단하겠습니다.프로젝트 파일을 확인했습니다. 현재 상황과 문제점을 파악했으니, 클로드 코드를 위한 상세한 작업지시서를 작성하겠습니다.
+
+---
+
+# 🔧 작업지시서: PPT 생성 엔진 레이아웃 및 인코딩 문제 해결
+
+## 📋 작업 개요
+
+**담당자**: Claude Code (AI 개발 에이전트)  
+**프로젝트 경로**: `D:\PPT_Designer_OK`  
+**현재 상황**: 품질 점수 0.873 달성했으나, 2가지 critical 문제 발생  
+**목표**: 레이아웃 AI 워크플로우 정상 작동 + 한글 인코딩 문제 해결
+
+---
+
+## 🎯 해결해야 할 문제
+
+### ❌ 문제 1: 템플릿 레이아웃 AI 워크플로우 미작동
+**증상**: 
+- 슬라이드가 McKinsey 표준 템플릿/레이아웃을 따르지 않음
+- DesignApplicator가 레이아웃을 제대로 적용하지 못함
+- placeholder 기반 콘텐츠 삽입이 실패함
+
+### ❌ 문제 2: 불릿포인트 인코딩 깨짐
+**증상**:
+- 한글 불릿포인트가 깨진 문자로 표시됨
+- 특수 문자(•, ◦, ▪ 등) 렌더링 실패
+- UTF-8 인코딩 문제로 보임
+
+---
+
+## 📂 관련 파일 위치
+
+```
+D:\PPT_Designer_OK/
+├── app/
+│   ├── services/
+│   │   ├── design_applicator.py      # 🔴 수정 필요 - 레이아웃 적용 로직
+│   │   ├── content_generator.py      # 🔴 수정 필요 - 콘텐츠 삽입 로직
+│   │   └── workflow_orchestrator.py  # 확인 필요 - 파이프라인 연결
+│   │
+│   ├── core/
+│   │   ├── slide_fixer.py           # 확인 필요 - 텍스트 처리
+│   │   └── text_fitter.py           # 🔴 수정 필요 - 인코딩 처리
+│   │
+│   └── templates/
+│       └── mckinsey_templates.py    # 🔴 수정 필요 - 템플릿 정의
+│
+└── tests/
+    └── test_layout_encoding.py      # 🆕 생성 필요 - 통합 테스트
+```
+
+---
+
+## 🔨 Task 1: 레이아웃 AI 워크플로우 수정
+
+### 1.1 DesignApplicator 진단 및 수정
+
+**파일**: `app/services/design_applicator.py`
+
+**작업 내용**:
+
+```python
+# ✅ 체크포인트 1: 레이아웃 선택 로직 확인
+class DesignApplicator:
+    def _select_layout(self, slide_type: str, content: Dict) -> Layout:
+        """
+        현재 코드를 확인하고 다음을 검증:
+        1. slide_type이 올바르게 전달되는가?
+        2. 레이아웃 매핑이 정확한가?
+        3. 폴백 레이아웃이 제대로 작동하는가?
+        """
+        
+        # 🔍 디버깅: 로깅 추가
+        logger.info(f"Selecting layout for slide_type: {slide_type}")
+        logger.info(f"Available layouts: {self.layouts.keys()}")
+        
+        # 수정: 명확한 레이아웃 매핑 테이블
+        layout_mapping = {
+            "title": "title_slide",
+            "executive_summary": "dual_header",
+            "market_analysis": "three_column",
+            "strategy": "matrix",
+            "financial": "waterfall",
+            "conclusion": "title_slide"
+        }
+        
+        layout_name = layout_mapping.get(slide_type, "dual_header")
+        return self.layouts[layout_name]
+```
+
+**수정 포인트**:
+1. **로깅 강화**: 각 단계에서 선택된 레이아웃 기록
+2. **레이아웃 매핑 명확화**: slide_type → layout_name 1:1 매핑
+3. **폴백 메커니즘**: 레이아웃이 없을 경우 기본 레이아웃 사용
+
+### 1.2 Placeholder 기반 콘텐츠 삽입 강화
+
+**파일**: `app/services/content_generator.py`
+
+**문제 분석**:
+```python
+# ❌ 현재 문제 (추정)
+def _add_content_to_slide(self, slide, content):
+    # placeholder를 찾지 못하고 실패
+    # 또는 placeholder에 콘텐츠를 삽입하지 못함
+```
+
+**해결 방법**:
+```python
+def _add_content_to_slide(self, slide, content: Dict) -> bool:
+    """
+    3단계 폴백 시스템으로 콘텐츠 삽입 보장
+    """
+    success = False
+    
+    # 🥇 시도 1: Placeholder 사용 (가장 이상적)
+    try:
+        if self._insert_via_placeholders(slide, content):
+            logger.info("✅ Content inserted via placeholders")
+            return True
+    except Exception as e:
+        logger.warning(f"Placeholder insertion failed: {e}")
+    
+    # 🥈 시도 2: 기존 Text Frame 활용
+    try:
+        if self._insert_via_text_frames(slide, content):
+            logger.info("✅ Content inserted via text frames")
+            return True
+    except Exception as e:
+        logger.warning(f"Text frame insertion failed: {e}")
+    
+    # 🥉 시도 3: 새로운 Textbox 생성 (폴백)
+    try:
+        self._insert_via_new_textbox(slide, content)
+        logger.info("✅ Content inserted via new textbox")
+        return True
+    except Exception as e:
+        logger.error(f"❌ All insertion methods failed: {e}")
+        return False
+
+def _insert_via_placeholders(self, slide, content: Dict) -> bool:
+    """Placeholder 기반 삽입"""
+    placeholders = {shape.placeholder_format.idx: shape 
+                    for shape in slide.shapes 
+                    if shape.is_placeholder}
+    
+    if not placeholders:
+        return False
+    
+    # 헤드라인 삽입 (일반적으로 idx=0 또는 1)
+    if "headline" in content:
+        title_ph = placeholders.get(0) or placeholders.get(1)
+        if title_ph and title_ph.has_text_frame:
+            title_ph.text = content["headline"]
+    
+    # 본문 삽입 (일반적으로 idx=10 이상)
+    if "body" in content:
+        body_ph = None
+        for idx in [10, 11, 12, 13, 14]:
+            if idx in placeholders:
+                body_ph = placeholders[idx]
+                break
+        
+        if body_ph and body_ph.has_text_frame:
+            self._add_bullet_points(body_ph.text_frame, content["body"])
+            return True
+    
+    return False
+
+def _insert_via_text_frames(self, slide, content: Dict) -> bool:
+    """기존 Text Frame 활용"""
+    text_shapes = [shape for shape in slide.shapes 
+                   if shape.has_text_frame]
+    
+    if len(text_shapes) < 2:
+        return False
+    
+    # 첫 번째: 제목
+    text_shapes[0].text = content.get("headline", "")
+    
+    # 두 번째: 본문
+    if "body" in content:
+        self._add_bullet_points(text_shapes[1].text_frame, content["body"])
+    
+    return True
+
+def _insert_via_new_textbox(self, slide, content: Dict):
+    """새로운 Textbox 생성 (최후의 수단)"""
+    from pptx.util import Inches
+    
+    # 제목 Textbox
+    title_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(0.5), 
+        Inches(9), Inches(1)
+    )
+    title_box.text = content.get("headline", "Untitled")
+    
+    # 본문 Textbox
+    body_box = slide.shapes.add_textbox(
+        Inches(0.5), Inches(2), 
+        Inches(9), Inches(5)
+    )
+    
+    if "body" in content:
+        self._add_bullet_points(body_box.text_frame, content["body"])
+```
+
+**검증 방법**:
+```python
+# tests/test_layout_workflow.py
+def test_layout_application():
+    """레이아웃이 제대로 적용되는지 테스트"""
+    applicator = DesignApplicator()
+    
+    test_slides = [
+        {"type": "title", "content": {"headline": "Test Title"}},
+        {"type": "market_analysis", "content": {"headline": "Market", "body": ["Point 1", "Point 2"]}}
+    ]
+    
+    for slide_data in test_slides:
+        slide = create_test_slide()
+        success = applicator.apply_layout(slide, slide_data)
+        assert success, f"Failed to apply {slide_data['type']} layout"
+        
+        # Placeholder 확인
+        assert any(shape.is_placeholder for shape in slide.shapes), \
+            "No placeholders found in slide"
+```
+
+---
+
+## 🔨 Task 2: 한글 인코딩 및 불릿포인트 문제 해결
+
+### 2.1 UTF-8 인코딩 강제 적용
+
+**파일**: `app/core/text_fitter.py` 또는 `app/services/content_generator.py`
+
+**문제 분석**:
+```python
+# ❌ 현재 문제 (추정)
+text_frame.text = "한글 텍스트"  # 인코딩 오류 발생 가능
+paragraph.text = "•불릿포인트"   # 특수문자 깨짐
+```
+
+**해결 방법**:
+```python
+import sys
+import locale
+
+# 🔧 시스템 인코딩 설정
+def ensure_utf8_encoding():
+    """UTF-8 인코딩 강제"""
+    if sys.platform == 'win32':
+        # Windows에서 UTF-8 활성화
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+        except:
+            pass
+    
+    # Python 기본 인코딩 확인
+    if sys.getdefaultencoding() != 'utf-8':
+        logger.warning(f"Default encoding is {sys.getdefaultencoding()}, not UTF-8")
+
+# 🔧 텍스트 정규화 함수
+def normalize_text(text: str) -> str:
+    """
+    텍스트를 UTF-8 호환 형태로 정규화
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    
+    # Unicode 정규화 (NFC 형태로 변환)
+    import unicodedata
+    text = unicodedata.normalize('NFC', text)
+    
+    # 제어 문자 제거
+    text = ''.join(char for char in text if not unicodedata.category(char).startswith('C'))
+    
+    return text
+
+# 🔧 안전한 텍스트 설정
+def set_text_safely(text_frame, text: str):
+    """
+    인코딩 오류 없이 안전하게 텍스트 설정
+    """
+    try:
+        normalized_text = normalize_text(text)
+        text_frame.text = normalized_text
+    except UnicodeEncodeError as e:
+        logger.error(f"Encoding error: {e}")
+        # 폴백: ASCII 호환 문자로 대체
+        text_frame.text = text.encode('ascii', 'ignore').decode('ascii')
+```
+
+### 2.2 불릿포인트 문자 올바른 설정
+
+**파일**: `app/services/content_generator.py`
+
+**문제 분석**:
+```python
+# ❌ 잘못된 불릿포인트 설정
+paragraph.text = "• 항목"  # 문자가 깨질 수 있음
+```
+
+**올바른 해결책**:
+```python
+from pptx.enum.text import PP_PARAGRAPH_ALIGNMENT, MSO_AUTO_SIZE
+from pptx.util import Pt
+
+def _add_bullet_points(self, text_frame, items: list):
+    """
+    올바른 불릿포인트 적용 (인코딩 안전)
+    """
+    text_frame.clear()  # 기존 내용 초기화
+    text_frame.word_wrap = True
+    
+    for idx, item in enumerate(items):
+        # 안전하게 텍스트 정규화
+        item_text = normalize_text(str(item))
+        
+        # 문단 생성
+        if idx == 0:
+            p = text_frame.paragraphs[0]
+        else:
+            p = text_frame.add_paragraph()
+        
+        # 불릿포인트 설정: python-pptx API 사용 (문자 직접 입력 ❌)
+        p.level = 0  # 들여쓰기 레벨
+        
+        # ✅ 방법 1: 폰트를 통한 불릿 설정 (권장)
+        run = p.add_run()
+        run.text = item_text  # 텍스트만 입력, 불릿은 따로
+        
+        # 폰트 설정
+        font = run.font
+        font.name = 'Arial'
+        font.size = Pt(14)
+        
+        # ✅ 불릿 포맷 설정 (python-pptx 공식 방법)
+        from pptx.util import Pt
+        from pptx.dml.color import RGBColor
+        
+        # Bullet 활성화
+        p.level = 0  # 1단계 불릿
+        
+        # 📌 중요: python-pptx의 bullet font 설정
+        # paragraph의 bullet character는 자동으로 처리됨
+        # 직접 "•" 문자를 넣지 말 것!
+        
+    # ✅ 방법 2: 명시적 bullet character 설정 (고급)
+    try:
+        # XML 레벨에서 직접 설정
+        from pptx.oxml import parse_xml
+        from pptx.oxml.ns import nsdecls
+        
+        for p in text_frame.paragraphs:
+            # bullet char 명시적 설정
+            pPr = p._element.get_or_add_pPr()
+            
+            # buFont 요소 생성 (bullet 폰트)
+            buFont_xml = f'<a:buFont {nsdecls("a")} typeface="Arial" />'
+            buFont = parse_xml(buFont_xml)
+            pPr.append(buFont)
+            
+            # buChar 요소 생성 (bullet 문자 - Unicode)
+            buChar_xml = f'<a:buChar {nsdecls("a")} char="•" />'
+            buChar = parse_xml(buChar_xml)
+            pPr.append(buChar)
+            
+    except Exception as e:
+        logger.warning(f"Advanced bullet setup failed: {e}")
+        # 기본 설정으로 폴백
+        pass
+
+def _setup_multilevel_bullets(self, text_frame, items: list):
+    """
+    다단계 불릿포인트 (중첩 구조)
+    """
+    for item in items:
+        if isinstance(item, dict):
+            # 메인 항목
+            p = text_frame.add_paragraph()
+            p.text = normalize_text(item["text"])
+            p.level = 0
+            
+            # 하위 항목
+            for sub_item in item.get("sub_items", []):
+                sub_p = text_frame.add_paragraph()
+                sub_p.text = normalize_text(sub_item)
+                sub_p.level = 1  # 들여쓰기
+                
+        else:
+            # 단순 항목
+            p = text_frame.add_paragraph()
+            p.text = normalize_text(item)
+            p.level = 0
+```
+
+### 2.3 한글 폰트 명시적 설정
+
+**추가 수정**:
+```python
+def _apply_korean_font_safely(self, paragraph):
+    """
+    한글 텍스트에 적합한 폰트 설정
+    """
+    for run in paragraph.runs:
+        font = run.font
+        
+        # 한글 지원 폰트 (우선순위)
+        korean_fonts = ['맑은 고딕', 'Malgun Gothic', 'Arial', 'Noto Sans KR']
+        
+        # 첫 번째 사용 가능한 폰트 적용
+        for font_name in korean_fonts:
+            try:
+                font.name = font_name
+                break
+            except:
+                continue
+        
+        # 크기 설정
+        font.size = Pt(14)
+        
+        # 색상 설정
+        from pptx.dml.color import RGBColor
+        font.color.rgb = RGBColor(83, 86, 90)  # McKinsey 표준 회색
+```
+
+---
+
+## 🔨 Task 3: 통합 테스트 및 검증
+
+### 3.1 통합 테스트 파일 생성
+
+**파일**: `tests/test_layout_encoding.py` (신규 생성)
+
+```python
+"""
+레이아웃 및 인코딩 문제 통합 테스트
+"""
+import pytest
+from app.services.workflow_orchestrator import WorkflowOrchestrator
+from app.services.design_applicator import DesignApplicator
+from app.services.content_generator import ContentGenerator
+from pptx import Presentation
+
+def test_layout_workflow_e2e():
+    """End-to-End 레이아웃 워크플로우 테스트"""
+    
+    # 테스트 입력
+    test_document = """
+    OK금융그룹 2024년 실적 분석
+    
+    - 매출 1,000억원 (전년 대비 11% 증가)
+    - 신제품 매출 비중 70%
+    - 해외 시장 진출 계획
+    """
+    
+    # 워크플로우 실행
+    orchestrator = WorkflowOrchestrator()
+    result = orchestrator.execute({
+        "document": test_document,
+        "num_slides": 5
+    })
+    
+    # 검증 1: PPT 파일 생성 성공
+    assert result["status"] == "success"
+    assert "ppt_file" in result
+    
+    # 검증 2: 레이아웃 적용 확인
+    prs = Presentation(result["ppt_file"])
+    
+    for idx, slide in enumerate(prs.slides):
+        print(f"\n=== Slide {idx + 1} ===")
+        
+        # Placeholder 존재 확인
+        placeholders = [s for s in slide.shapes if s.is_placeholder]
+        print(f"Placeholders: {len(placeholders)}")
+        assert len(placeholders) > 0, f"Slide {idx + 1} has no placeholders"
+        
+        # 텍스트 내용 확인
+        text_shapes = [s for s in slide.shapes if s.has_text_frame]
+        for shape in text_shapes:
+            text = shape.text
+            print(f"Text: {text[:50]}...")
+            
+            # 한글 인코딩 확인
+            try:
+                text.encode('utf-8')
+                print("✅ UTF-8 encoding OK")
+            except UnicodeEncodeError:
+                pytest.fail(f"❌ UTF-8 encoding failed in slide {idx + 1}")
+
+def test_bullet_points_encoding():
+    """불릿포인트 인코딩 테스트"""
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    
+    # 새 프레젠테이션 생성
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    
+    # 텍스트 박스 추가
+    textbox = slide.shapes.add_textbox(
+        Inches(1), Inches(2), Inches(8), Inches(4)
+    )
+    text_frame = textbox.text_frame
+    
+    # 한글 불릿포인트 추가
+    korean_items = [
+        "첫 번째 항목: 매출 증가",
+        "두 번째 항목: 비용 절감",
+        "세 번째 항목: 시장 확대"
+    ]
+    
+    generator = ContentGenerator()
+    generator._add_bullet_points(text_frame, korean_items)
+    
+    # 검증
+    for p in text_frame.paragraphs:
+        text = p.text
+        print(f"Paragraph: {text}")
+        
+        # 인코딩 확인
+        assert text.encode('utf-8'), "UTF-8 encoding failed"
+        
+        # 한글 포함 확인
+        has_korean = any('\uac00' <= char <= '\ud7a3' for char in text)
+        assert has_korean, "No Korean characters found"
+    
+    # 파일 저장 및 재로드 테스트
+    test_file = "test_bullet_output.pptx"
+    prs.save(test_file)
+    
+    # 재로드하여 데이터 무결성 확인
+    prs_reload = Presentation(test_file)
+    slide_reload = prs_reload.slides[0]
+    
+    for shape in slide_reload.shapes:
+        if shape.has_text_frame:
+            for p in shape.text_frame.paragraphs:
+                print(f"Reloaded: {p.text}")
+                assert p.text.encode('utf-8'), "Encoding corrupted after save/load"
+
+def test_mckinsey_template_layouts():
+    """McKinsey 템플릿 레이아웃 테스트"""
+    applicator = DesignApplicator()
+    
+    # 모든 레이아웃 타입 테스트
+    layout_types = [
+        "title_slide",
+        "dual_header",
+        "three_column",
+        "matrix",
+        "waterfall"
+    ]
+    
+    for layout_type in layout_types:
+        print(f"\nTesting layout: {layout_type}")
+        
+        # 레이아웃 생성
+        slide = applicator.create_slide_with_layout(layout_type)
+        
+        # 검증
+        assert slide is not None, f"Failed to create {layout_type}"
+        
+        # Placeholder 확인
+        placeholders = [s for s in slide.shapes if s.is_placeholder]
+        print(f"  Placeholders: {len(placeholders)}")
+        assert len(placeholders) > 0, f"{layout_type} has no placeholders"
+        
+        # 레이아웃 구조 출력
+        for ph in placeholders:
+            print(f"    - {ph.placeholder_format.type} (idx: {ph.placeholder_format.idx})")
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])
+```
+
+### 3.2 실행 및 검증 스크립트
+
+**파일**: `examples/test_layout_fix.py` (신규 생성)
+
+```python
+"""
+레이아웃 및 인코딩 수정 검증 스크립트
+"""
+import sys
+import logging
+from pathlib import Path
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def main():
+    """메인 실행 함수"""
+    
+    print("="*60)
+    print("🔧 PPT 생성 엔진 수정사항 검증")
+    print("="*60)
+    
+    # 1. 인코딩 설정 확인
+    print("\n📝 Step 1: 시스템 인코딩 확인")
+    print(f"  Default encoding: {sys.getdefaultencoding()}")
+    print(f"  Filesystem encoding: {sys.getfilesystemencoding()}")
+    
+    # 2. 테스트 문서로 PPT 생성
+    print("\n📝 Step 2: 테스트 PPT 생성")
+    
+    test_doc = """
+    OK금융그룹 디지털 전환 전략
+    
+    핵심 현황:
+    - 2024년 디지털 채널 이용률 65% 달성
+    - 모바일뱅킹 사용자 300만명 돌파
+    - AI 기반 상담 서비스 만족도 4.5/5.0
+    
+    주요 과제:
+    - 레거시 시스템 현대화
+    - 데이터 보안 강화
+    - 고객 경험 개선
+    
+    전략 방향:
+    - 클라우드 기반 인프라 전환
+    - AI/ML 역량 강화
+    - 디지털 인재 양성
+    """
+    
+    from app.services.workflow_orchestrator import WorkflowOrchestrator
+    
+    orchestrator = WorkflowOrchestrator()
+    result = orchestrator.execute({
+        "document": test_doc,
+        "num_slides": 8,
+        "style": "mckinsey"
+    })
+    
+    if result["status"] != "success":
+        print(f"  ❌ PPT 생성 실패: {result.get('error')}")
+        return False
+    
+    print(f"  ✅ PPT 생성 성공: {result['ppt_file']}")
+    
+    # 3. 생성된 PPT 검증
+    print("\n📝 Step 3: 생성된 PPT 검증")
+    
+    from pptx import Presentation
+    
+    prs = Presentation(result["ppt_file"])
+    
+    all_checks_passed = True
+    
+    for idx, slide in enumerate(prs.slides):
+        print(f"\n  🔍 Slide {idx + 1} 검사:")
+        
+        # 레이아웃 확인
+        placeholders = [s for s in slide.shapes if s.is_placeholder]
+        print(f"    - Placeholders: {len(placeholders)}")
+        
+        if len(placeholders) == 0:
+            print(f"    ⚠️  경고: Placeholder가 없습니다")
+        
+        # 텍스트 인코딩 확인
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                text = shape.text
+                
+                # 한글 포함 여부
+                has_korean = any('\uac00' <= char <= '\ud7a3' for char in text)
+                
+                if has_korean:
+                    # UTF-8 인코딩 테스트
+                    try:
+                        text.encode('utf-8')
+                        decoded = text.encode('utf-8').decode('utf-8')
+                        
+                        if decoded == text:
+                            print(f"    ✅ 한글 인코딩 정상: {text[:30]}...")
+                        else:
+                            print(f"    ❌ 인코딩 불일치: {text[:30]}...")
+                            all_checks_passed = False
+                            
+                    except UnicodeError as e:
+                        print(f"    ❌ 인코딩 오류: {e}")
+                        all_checks_passed = False
+                
+                # 불릿포인트 확인
+                for p in shape.text_frame.paragraphs:
+                    if p.level > 0 or any(char in p.text for char in ['•', '◦', '▪', '-']):
+                        print(f"    ✅ 불릿포인트 감지: Level {p.level}")
+    
+    # 4. 최종 결과
+    print("\n" + "="*60)
+    if all_checks_passed:
+        print("🎉 모든 검증 통과!")
+        print("="*60)
+        return True
+    else:
+        print("❌ 일부 검증 실패")
+        print("="*60)
+        return False
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)
+```
+
+---
+
+## 📝 작업 순서 (Claude Code에게 전달)
+
+### ✅ Phase 1: 레이아웃 워크플로우 수정 (우선순위: 높음)
+
+1. **DesignApplicator 진단**
+   ```bash
+   # 파일 열기
+   code app/services/design_applicator.py
+   
+   # 확인 사항:
+   # - _select_layout() 메서드 로직
+   # - layout_mapping 정확성
+   # - 로깅 추가
+   ```
+
+2. **ContentGenerator 콘텐츠 삽입 로직 강화**
+   ```bash
+   # 파일 열기
+   code app/services/content_generator.py
+   
+   # 수정 사항:
+   # - _add_content_to_slide() 3단계 폴백 구현
+   # - _insert_via_placeholders() 추가
+   # - _insert_via_text_frames() 추가
+   # - _insert_via_new_textbox() 추가
+   ```
+
+3. **로깅 및 디버깅 강화**
+   ```python
+   # 모든 주요 메서드에 로깅 추가
+   logger.info(f"Selected layout: {layout_name}")
+   logger.debug(f"Placeholder count: {len(placeholders)}")
+   logger.warning(f"Fallback to text frame insertion")
+   ```
+
+### ✅ Phase 2: 인코딩 문제 해결 (우선순위: 높음)
+
+1. **UTF-8 인코딩 강제**
+   ```bash
+   # 파일 생성 또는 수정
+   code app/core/text_utils.py  # 신규 유틸리티 파일
+   
+   # 구현 내용:
+   # - ensure_utf8_encoding()
+   # - normalize_text()
+   # - set_text_safely()
+   ```
+
+2. **불릿포인트 로직 재작성**
+   ```bash
+   code app/services/content_generator.py
+   
+   # 수정:
+   # - _add_bullet_points() 완전 재작성
+   # - python-pptx API 올바른 사용
+   # - 문자 직접 입력 ❌ → API 활용 ✅
+   ```
+
+3. **한글 폰트 설정**
+   ```python
+   # 모든 텍스트에 한글 지원 폰트 명시적 적용
+   font.name = 'Malgun Gothic'  # 또는 'Arial'
+   ```
+
+### ✅ Phase 3: 테스트 및 검증 (우선순위: 중간)
+
+1. **통합 테스트 실행**
+   ```bash
+   # 테스트 파일 생성
+   pytest tests/test_layout_encoding.py -v -s
+   ```
+
+2. **검증 스크립트 실행**
+   ```bash
+   python examples/test_layout_fix.py
+   ```
+
+3. **실제 PPT 생성 및 확인**
+   ```bash
+   # 워크플로우 전체 실행
+   python examples/test_final_quality.py
+   
+   # 생성된 PPTX 파일을 PowerPoint에서 열어 육안 확인
+   ```
+
+---
+
+## ✅ 완료 기준 (Definition of Done)
+
+### 레이아웃 워크플로우
+- [ ] 모든 슬라이드가 올바른 McKinsey 템플릿 적용
+- [ ] Placeholder 기반 콘텐츠 삽입 성공률 95%+
+- [ ] 레이아웃 선택 로직 100% 정확도
+- [ ] 3단계 폴백 시스템 정상 작동
+
+### 인코딩 문제
+- [ ] 한글 텍스트 100% 정상 표시
+- [ ] 불릿포인트 특수문자 깨짐 0건
+- [ ] UTF-8 인코딩 오류 0건
+- [ ] PowerPoint에서 열었을 때 완벽한 렌더링
+
+### 테스트
+- [ ] `test_layout_encoding.py` 모든 테스트 통과
+- [ ] `test_layout_fix.py` 검증 스크립트 성공
+- [ ] 3개 이상 실제 문서로 E2E 테스트 성공
+
+---
+
+## 🚨 예상 이슈 및 해결 방법
+
+### 이슈 1: Placeholder를 여전히 찾지 못함
+**증상**: `len(placeholders) == 0`
+**해결**: 
+- 템플릿 파일 자체를 확인 (`app/templates/`)
+- 기본 python-pptx 템플릿 사용
+- 커스텀 템플릿 PPTX 파일 생성
+
+### 이슈 2: 불릿포인트가 여전히 깨짐
+**증상**: 특수문자가 `?` 또는 `□`로 표시
+**해결**:
+- Windows 콘솔 코드 페이지 확인 (`chcp 65001`)
+- 폰트를 'Arial Unicode MS'로 변경
+- XML 레벨에서 직접 bullet character 설정
+
+### 이슈 3: 성능 저하
+**증상**: PPT 생성 시간이 5초 이상 증가
+**해결**:
+- 로깅 레벨 조정 (`INFO` → `WARNING`)
+- 불필요한 재시도 로직 제거
+- 캐싱 활용
+
+---
+
+## 📞 진행 상황 보고 형식
+
+작업 완료 후 다음 형식으로 보고해주세요:
+
+```markdown
+## 작업 완료 보고
+
+### ✅ 완료된 작업
+1. [Task 이름] - [파일명] - [주요 변경사항]
+2. ...
+
+### 🐛 발견된 추가 문제
+- 문제 설명
+- 임시 해결 방법
+
+### 📊 테스트 결과
+- test_layout_encoding.py: X/Y 통과
+- test_layout_fix.py: 성공/실패
+- E2E 테스트: 품질 점수 X.XXX
+
+### 📸 스크린샷
+[생성된 PPT의 주요 슬라이드 스크린샷]
+
+### 🔄 다음 단계 제안
+- 추가로 필요한 작업
+- 개선 가능한 부분
+```
+
+---
+
+## 🎯 최종 목표
+
+**생성된 PPT 파일이 다음 조건을 만족**:
+1. ✅ 모든 슬라이드가 McKinsey 표준 레이아웃 적용
+2. ✅ 한글 텍스트 100% 정확하게 표시
+3. ✅ 불릿포인트 제대로 렌더링
+4. ✅ PowerPoint에서 열었을 때 완벽한 시각적 품질
+5. ✅ 품질 점수 0.873 유지 또는 향상
+
+---
+
+**작업 시작 명령어**:
+```bash
+cd D:\PPT_Designer_OK
+python examples/test_layout_fix.py
+```
+
+행운을 빕니다! 🚀

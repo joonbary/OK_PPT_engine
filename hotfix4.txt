@@ -1,0 +1,385 @@
+🏗️ Phase 2: 콘텐츠 차별화 시스템 (Content Differentiation)
+Task 2.1: MECE 구조 기반 슬라이드 분할
+우선순위: 🔴 P0
+문제 진단
+현재 2-5번 슬라이드가 모두 비슷한 내용을 반복함:
+
+Executive Summary: "AI는 기업을 재구성한다"
+Market Analysis: "AI는 기업을 재구성한다"
+Strategic Options: "AI는 기업을 재구성할 것"
+Recommendations: "AI는 기업을 재구성한다"
+
+근본 원인
+StrategistAgent가 문서를 MECE 구조로 분해하지 않고, 각 슬라이드에 전체 요약만 할당하고 있음
+작업 내용
+1단계: app/agents/strategist_agent.py 대폭 수정
+pythonclass StrategistAgent(BaseAgent):
+    """
+    전략 구조 설계 에이전트
+    MECE 원칙으로 문서를 논리적으로 분할
+    """
+    
+    async def process(self, input_data: Dict, context: Dict) -> Dict:
+        document = input_data['document']
+        num_slides = input_data.get('num_slides', 5)
+        
+        # ✅ 1. 문서 전체 분석
+        analysis = await self._analyze_document(document)
+        
+        # ✅ 2. MECE 프레임워크 선택
+        framework = self._select_mece_framework(analysis)
+        
+        # ✅ 3. 문서를 MECE 구조로 분해
+        mece_segments = self._decompose_by_mece(document, framework, analysis)
+        
+        # ✅ 4. 각 세그먼트를 슬라이드에 매핑
+        slide_mapping = self._map_segments_to_slides(mece_segments, num_slides)
+        
+        return {
+            "analysis": analysis,
+            "framework": framework,
+            "mece_segments": mece_segments,
+            "slide_outline": slide_mapping
+        }
+    
+    def _decompose_by_mece(self, document: str, framework: str, analysis: Dict) -> List[Dict]:
+        """
+        MECE 원칙으로 문서 분해
+        
+        예시 (3C 프레임워크):
+        - Segment 1: Company (기업 현황)
+        - Segment 2: Competitors (경쟁 환경)
+        - Segment 3: Customers (고객/시장)
+        """
+        
+        mece_prompts = {
+            "3C": """
+            다음 문서를 3C 프레임워크(Company, Competitors, Customers)로 분석하여
+            각 영역에 해당하는 내용을 **완전히 분리**하여 추출하세요:
+            
+            문서:
+            {document}
+            
+            JSON 형식으로 반환:
+            {{
+                "Company": "기업 자체에 대한 내용 (내부 역량, 조직, 운영)",
+                "Competitors": "경쟁 환경에 대한 내용 (경쟁사, 시장 점유율)",
+                "Customers": "고객/시장에 대한 내용 (수요, 트렌드, 니즈)"
+            }}
+            
+            ❗중요: 각 영역은 상호 배타적이고 완전히 분리되어야 합니다.
+            """,
+            
+            "SWOT": """
+            다음 문서를 SWOT 분석으로 분류하세요:
+            
+            {document}
+            
+            JSON 형식:
+            {{
+                "Strengths": "강점 (내부 긍정 요인)",
+                "Weaknesses": "약점 (내부 부정 요인)",
+                "Opportunities": "기회 (외부 긍정 요인)",
+                "Threats": "위협 (외부 부정 요인)"
+            }}
+            """,
+            
+            "Problem-Solution": """
+            다음 문서를 Problem-Solution 구조로 분석:
+            
+            {document}
+            
+            JSON 형식:
+            {{
+                "Current_State": "현재 상황 (As-Is)",
+                "Problems": "문제점/과제",
+                "Solutions": "해결방안",
+                "Expected_Outcomes": "기대 효과 (To-Be)"
+            }}
+            """
+        }
+        
+        # LLM에 MECE 분해 요청
+        prompt = mece_prompts[framework].format(document=document)
+        response = await self.llm_client.generate(prompt)
+        segments = json.loads(response)
+        
+        return [
+            {"category": key, "content": value}
+            for key, value in segments.items()
+        ]
+    
+    def _map_segments_to_slides(self, mece_segments: List[Dict], num_slides: int) -> List[Dict]:
+        """
+        MECE 세그먼트를 슬라이드에 매핑
+        
+        5장 구성 예시:
+        1. Title
+        2. Executive Summary (전체 개요)
+        3-4. MECE 세그먼트 각각 (Market Analysis, Strategic Options 등)
+        5. Recommendations (종합 제언)
+        """
+        
+        slide_outline = []
+        
+        # 1. 표지
+        slide_outline.append({
+            "slide_number": 1,
+            "type": "Title",
+            "content_focus": "전체 주제",
+            "mece_segment": None
+        })
+        
+        # 2. Executive Summary
+        slide_outline.append({
+            "slide_number": 2,
+            "type": "Executive Summary",
+            "content_focus": "전체 문서 요약 (모든 MECE 세그먼트의 핵심)",
+            "mece_segment": "ALL"
+        })
+        
+        # 3-4. MECE 세그먼트 할당
+        content_slides = num_slides - 3  # 표지, 요약, 제언 제외
+        for idx, segment in enumerate(mece_segments[:content_slides]):
+            slide_outline.append({
+                "slide_number": 3 + idx,
+                "type": self._determine_slide_type(segment["category"]),
+                "content_focus": segment["category"],
+                "mece_segment": segment["content"],  # ✅ 특정 세그먼트만 할당
+                "instructions": f"이 슬라이드는 **{segment['category']}**에 관한 내용만 다루세요."
+            })
+        
+        # 5. Recommendations
+        slide_outline.append({
+            "slide_number": num_slides,
+            "type": "Recommendations",
+            "content_focus": "종합 제언 및 액션 아이템",
+            "mece_segment": "ALL"
+        })
+        
+        return slide_outline
+    
+    def _determine_slide_type(self, category: str) -> str:
+        """MECE 카테고리에 맞는 슬라이드 타입 결정"""
+        type_mapping = {
+            "Company": "Internal Analysis",
+            "Competitors": "Market Analysis",
+            "Customers": "Market Analysis",
+            "Strengths": "Internal Analysis",
+            "Weaknesses": "Challenges",
+            "Opportunities": "Market Analysis",
+            "Threats": "Market Analysis",
+            "Current_State": "Situation Analysis",
+            "Problems": "Problem Definition",
+            "Solutions": "Strategic Options",
+            "Expected_Outcomes": "Impact Analysis"
+        }
+        return type_mapping.get(category, "Analysis")
+2단계: ContentGenerator 수정하여 MECE 세그먼트 활용
+python# app/services/content_generator.py
+class ContentGenerator:
+    async def generate_slide_content(self, slide_outline: Dict, context: Dict) -> Dict:
+        slide_type = slide_outline["type"]
+        mece_segment = slide_outline.get("mece_segment")
+        
+        # ✅ MECE 세그먼트가 특정되어 있으면 해당 내용만 사용
+        if mece_segment and mece_segment != "ALL":
+            prompt = f"""
+            슬라이드 유형: {slide_type}
+            콘텐츠 범위: {slide_outline['content_focus']}
+            
+            ❗중요: 다음 콘텐츠에 **오직 집중**하세요:
+            {mece_segment}
+            
+            다른 주제는 언급하지 마세요. 위 내용만 깊이 있게 다루세요.
+            
+            생성 요구사항:
+            - 헤드라인: 이 세그먼트의 핵심 메시지 (So What?)
+            - 3-5개 불릿 포인트: 세부 인사이트
+            - 데이터/예시 포함
+            """
+        else:
+            # Executive Summary나 Recommendations는 전체 통합
+            prompt = f"""
+            슬라이드 유형: {slide_type}
+            
+            전체 MECE 세그먼트:
+            {json.dumps(context.get('mece_segments', []), ensure_ascii=False)}
+            
+            모든 세그먼트를 **종합**하여 {slide_type}을 작성하세요.
+            """
+        
+        return await self._generate_from_prompt(prompt)
+검증 방법
+python# tests/test_mece_decomposition.py
+def test_mece_differentiation():
+    strategist = StrategistAgent()
+    
+    result = strategist.process({
+        "document": "AI 기업 영향 문서...",
+        "num_slides": 5
+    })
+    
+    slide_outline = result["slide_outline"]
+    
+    # 검증 1: 각 슬라이드가 다른 mece_segment를 가짐
+    content_slides = [s for s in slide_outline if s["slide_number"] in [3, 4]]
+    segments = [s["mece_segment"] for s in content_slides]
+    assert len(segments) == len(set(segments))  # 중복 없음
+    
+    # 검증 2: 실제 콘텐츠 생성 후 유사도 확인
+    contents = [await generate_content(s) for s in content_slides]
+    similarity = calculate_similarity(contents[0], contents[1])
+    assert similarity < 0.5  # 50% 이하 유사도
+
+Task 2.2: 슬라이드 타입별 템플릿 다양화
+우선순위: 🟡 P1
+작업 내용
+app/services/design_applicator.py 수정
+pythonclass DesignApplicator:
+    """
+    슬라이드 타입별로 다른 레이아웃 적용
+    """
+    
+    SLIDE_TYPE_LAYOUTS = {
+        "Title": "title_slide",
+        "Executive Summary": "dual_header",  # 상단 헤드라인 + 하단 키 포인트
+        "Market Analysis": "three_column",   # 3단 구조
+        "Strategic Options": "matrix",       # 2x2 매트릭스
+        "Recommendations": "action_list",    # 액션 아이템 리스트
+        "Internal Analysis": "dual_header",
+        "Challenges": "problem_list",
+        "Impact Analysis": "waterfall"       # 흐름도
+    }
+    
+    def apply_design(self, slides: List[Dict], context: Dict) -> Presentation:
+        prs = Presentation()
+        
+        for slide_data in slides:
+            slide_type = slide_data["type"]
+            
+            # ✅ 타입별 레이아웃 선택
+            layout_name = self.SLIDE_TYPE_LAYOUTS.get(slide_type, "dual_header")
+            layout = self._get_layout(prs, layout_name)
+            
+            # ✅ 레이아웃에 맞는 콘텐츠 배치
+            if layout_name == "three_column":
+                self._apply_three_column_layout(slide, slide_data)
+            elif layout_name == "matrix":
+                self._apply_matrix_layout(slide, slide_data)
+            else:
+                self._apply_default_layout(slide, slide_data)
+        
+        return prs
+    
+    def _apply_three_column_layout(self, slide, data):
+        """
+        3단 레이아웃 적용
+        ┌──────────────────────────────┐
+        │       Headline (full width)  │
+        ├──────────┬──────────┬────────┤
+        │ Column 1 │ Column 2 │ Col 3  │
+        │ • Point  │ • Point  │ • Pt   │
+        └──────────┴──────────┴────────┘
+        """
+        # 구현...
+    
+    def _apply_matrix_layout(self, slide, data):
+        """
+        2x2 매트릭스 레이아웃
+        ┌──────────────────────────────┐
+        │       Headline               │
+        ├──────────────┬───────────────┤
+        │ High Impact  │ Quick Wins    │
+        │ High Effort  │ Low Effort    │
+        ├──────────────┼───────────────┤
+        │ Low Priority │ Low Impact    │
+        │              │               │
+        └──────────────┴───────────────┘
+        """
+        # 구현...
+```
+
+---
+
+## 📋 **최종 작업 체크리스트 (for Claude Code)**
+
+### **Phase 1: 긴급 수정 (이번 세션)**
+```
+□ Task 1.1: 언어 처리 시스템
+  □ ContentGenerator에 language 파라미터 추가
+  □ 모든 Agent에 언어 전달
+  □ LLM 프롬프트에 언어 명시
+  □ 테스트: 한글 제목 생성 확인
+
+□ Task 1.2: 불릿 포인트 인코딩
+  □ UTF-8 인코딩 명시
+  □ 불릿 문자 "•" 명시적 설정
+  □ 테스트: "??" 문자 사라짐 확인
+
+□ Task 1.3: 음슴체 변환
+  □ EumsumStyleConverter 클래스 생성
+  □ ContentGenerator에 통합
+  □ 테스트: 음슴체 변환 확인
+```
+
+### **Phase 2: 콘텐츠 차별화 (다음 세션)**
+```
+□ Task 2.1: MECE 구조 분해
+  □ StrategistAgent._decompose_by_mece() 구현
+  □ _map_segments_to_slides() 구현
+  □ ContentGenerator에 MECE 세그먼트 활용
+  □ 테스트: 슬라이드 내용 차별화 확인
+
+□ Task 2.2: 템플릿 다양화
+  □ DesignApplicator 레이아웃 맵핑
+  □ 3-column, matrix 레이아웃 구현
+  □ 테스트: 다양한 레이아웃 적용 확인
+```
+
+---
+
+## 🎯 **클로드 코드에게 전달할 최종 지시사항**
+```
+===== 작업 시작 =====
+
+프로젝트: McKinsey PPT 자동 생성 시스템
+경로: D:\PPT_Designer_OK
+
+현재 문제:
+1. 한글 문서인데 영어 제목 생성됨
+2. 불릿 포인트가 "??" 기호로 깨짐
+3. 2-5페이지 내용이 모두 비슷함
+4. 서술체 (음슴체 아님)
+5. 모든 슬라이드가 같은 템플릿
+
+우선순위 작업 (Phase 1):
+
+[P0-1] 언어 처리 수정
+- app/services/content_generator.py
+  → __init__(self, language="ko") 추가
+  → LLM 프롬프트에 언어 지시 추가
+  
+[P0-2] 불릿 포인트 인코딩
+- app/services/design_applicator.py
+  → _apply_bullet_points() UTF-8 명시
+  → 불릿 문자를 "•"로 명시
+
+[P1-3] 음슴체 변환
+- app/utils/text_formatter.py 새 파일 생성
+  → EumsumStyleConverter 클래스 구현
+  → 정규식 규칙 9개 적용
+- ContentGenerator에 통합
+
+테스트 방법:
+python examples/test_fixed_issues.py
+
+예상 결과:
+✅ 제목이 한글로 생성
+✅ 불릿 포인트 정상 표시
+✅ 음슴체 적용됨
+
+완료 후 리포트:
+- 수정한 파일 목록
+- 테스트 결과
+- 다음 Phase 2 준비 상태

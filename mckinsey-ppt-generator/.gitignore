@@ -1,0 +1,16 @@
+# Environment
+.env
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Generated files
+ppt_files/
+*.pptx
+
+# Docker
+.docker/

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 2: 구조 설계</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .stage-container {
+            background-color: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            padding: 24px;
+            width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stage-header {
+            font-size: 20px;
+            font-weight: 600;
+            border-bottom: 1px solid #d9d9d9;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .info-area, .storyline-area, .layout-preview-area {
+            background-color: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .info-item {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .storyline-list {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 12px;
+            background-color: #fff;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+        }
+        .storyline-list h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .storyline-list ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .storyline-list li {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .layout-preview-area button {
+             padding: 8px 12px;
+             border: 1px solid #1890ff;
+             background-color: #e6f7ff;
+             color: #1890ff;
+             border-radius: 4px;
+             cursor: pointer;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-buttons .next-btn {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .action-buttons .prev-btn {
+            background-color: #fff;
+            color: #595959;
+        }
+    </style>
+</head>
+<body>
+
+<div class="stage-container">
+    <div class="stage-header">Stage 2: 구조 설계</div>
+
+    <div class="info-area">
+        <div class="info-item">📊 선택된 프레임워크: <span id="framework"></span></div>
+        <div class="info-item">📑 슬라이드 구조: <span id="total-slides"></span></div>
+    </div>
+
+    <div class="storyline-list">
+        <h3>🎯 스토리라인 흐름:</h3>
+        <ul id="slide-outline">
+            <!-- Slide outline will be populated by JS -->
+        </ul>
+    </div>
+
+    <div class="layout-preview-area">
+        🎨 레이아웃 미리보기:
+        <button id="layout-preview-btn">[Slide 2 - DualHeader 레이아웃 보기]</button>
+    </div>
+
+    <div class="action-buttons">
+        <button id="prev-stage-btn" class="prev-btn">← 이전 단계</button>
+        <div>
+            <button id="confirm-btn" class="next-btn">✓ 구조 확정</button>
+            <button id="next-stage-btn" class="next-btn">→ 다음 단계</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const mockData = {
+            "framework": "3C",
+            "total_slides": 15,
+            "story_structure": "SCR",
+            "slide_outline": [
+                {
+                    "slide_number": 1,
+                    "type": "title",
+                    "headline": "아시아 시장 진출 전략"
+                },
+                {
+                    "slide_number": 2,
+                    "type": "executive_summary",
+                    "headline": "3개 핵심 인사이트가 50% 성장 가능성 시사"
+                },
+                {
+                    "slide_number": 3,
+                    "type": "situation",
+                    "headline": "아시아 시장이 연 15% 성장하며 기회 확대"
+                },
+                {
+                    "slide_number": 4,
+                    "type": "complication",
+                    "headline": "그러나, 현지 경쟁 심화로 시장 진입 장벽 존재"
+                },
+                {
+                    "slide_number": 5,
+                    "type": "resolution",
+                    "headline": "차별화된 제품과 현지화 전략으로 시장 선점 필요"
+                },
+                {
+                    "slide_number": 6,
+                    "type": "deep_dive",
+                    "headline": "세부 실행 과제 1: 제품 현지화"
+                }
+            ]
+        };
+
+        document.getElementById('framework').textContent = mockData.framework + ' Analysis';
+        document.getElementById('total-slides').textContent = mockData.total_slides + '장';
+
+        const slideOutlineElement = document.getElementById('slide-outline');
+        mockData.slide_outline.forEach(slide => {
+            const li = document.createElement('li');
+            li.textContent = `${slide.slide_number}. [${slide.type}] ${slide.headline}`;
+            slideOutlineElement.appendChild(li);
+        });
+
+        document.getElementById('prev-stage-btn').addEventListener('click', () => {
+            // In a real application, you might use a router or change window.location
+            window.location.href = 'stage1_ui.html';
+        });
+        
+        document.getElementById('layout-preview-btn').addEventListener('click', () => {
+            alert('레이아웃 미리보기 기능은 현재 개발 중입니다.');
+        });
+
+        document.getElementById('next-stage-btn').addEventListener('click', () => {
+            alert('다음 단계로 진행합니다.');
+        });
+        document.getElementById('confirm-btn').addEventListener('click', () => {
+            alert('구조가 확정되었습니다.');
+        });
+    });
+</script>
+
+</body>
+</html>

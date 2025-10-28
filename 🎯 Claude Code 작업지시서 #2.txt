@@ -1,0 +1,607 @@
+🎯 Claude Code 작업지시서 #2
+Step 2: ContentGenerator에 HeadlineGenerator 통합
+
+📋 작업 개요
+
+파일: app/services/content_generator.py
+목적: 모든 슬라이드에 McKinsey 스타일 헤드라인 자동 적용
+예상 시간: 30-60분
+난이도: ⭐⭐☆☆☆ (중하)
+예상 효과: Clarity 0.40 → 0.90 (+0.50)
+
+
+🔍 현재 상태 파악
+1. 먼저 현재 파일 확인
+bash# ContentGenerator 파일 확인
+docker exec mckinsey-ppt-generator-app-1 cat app/services/content_generator.py | head -100
+확인 사항:
+
+현재 generate_slide_content() 메서드 구조
+타이틀/헤드라인 생성 로직 유무
+슬라이드 데이터 구조
+
+
+🔨 구현 작업
+Step 2.1: HeadlineGenerator Import 추가
+위치: 파일 상단
+python# app/services/content_generator.py
+
+from typing import Dict, List, Optional, Any
+import logging
+from datetime import datetime
+
+# ✅ 추가할 import
+from app.services.headline_generator import HeadlineGenerator, SoWhatTester
+
+logger = logging.getLogger(__name__)
+
+
+class ContentGenerator:
+    """콘텐츠 생성 서비스"""
+    
+    def __init__(self):
+        # 기존 코드...
+        
+        # ✅ HeadlineGenerator 인스턴스 추가
+        self.headline_generator = HeadlineGenerator()
+        self.sowhat_tester = SoWhatTester()
+        
+        logger.info("ContentGenerator initialized with HeadlineGenerator")
+
+Step 2.2: 헤드라인 자동 생성 메서드 추가
+위치: ContentGenerator 클래스 내부
+pythonclass ContentGenerator:
+    
+    def _generate_or_enhance_headline(
+        self, 
+        slide_data: Dict, 
+        slide_index: int
+    ) -> str:
+        """
+        슬라이드 헤드라인 생성 또는 개선
+        
+        Priority:
+        1. 기존 헤드라인이 고품질(0.80+)이면 유지
+        2. 기존 헤드라인이 저품질이면 개선
+        3. 헤드라인 없으면 새로 생성
+        
+        Args:
+            slide_data: 슬라이드 데이터
+            slide_index: 슬라이드 인덱스 (0부터 시작)
+        
+        Returns:
+            최종 헤드라인 문자열
+        """
+        # 1. 기존 헤드라인 확인
+        existing_headline = (
+            slide_data.get('headline') or 
+            slide_data.get('title') or 
+            ''
+        )
+        
+        # 2. 첫 슬라이드는 특별 처리
+        if slide_index == 0:
+            if existing_headline:
+                return existing_headline
+            else:
+                # 프레젠테이션 제목 생성
+                return self._generate_presentation_title(slide_data)
+        
+        # 3. 기존 헤드라인 품질 평가
+        if existing_headline:
+            quality_score = self.sowhat_tester.evaluate(existing_headline)
+            
+            if quality_score >= 0.80:
+                logger.info(f"Slide {slide_index}: 기존 헤드라인 유지 (품질: {quality_score:.2f})")
+                return existing_headline
+            else:
+                logger.info(f"Slide {slide_index}: 헤드라인 개선 필요 (품질: {quality_score:.2f})")
+        
+        # 4. 새 헤드라인 생성
+        new_headline = self._create_headline_from_content(slide_data)
+        
+        # 5. 생성된 헤드라인 품질 확인
+        new_quality = self.sowhat_tester.evaluate(new_headline)
+        logger.info(f"Slide {slide_index}: 새 헤드라인 생성 (품질: {new_quality:.2f})")
+        
+        # 6. 품질이 너무 낮으면 재생성 (최대 3회)
+        retry_count = 0
+        while new_quality < 0.70 and retry_count < 3:
+            logger.warning(f"Slide {slide_index}: 헤드라인 재생성 (시도 {retry_count + 1}/3)")
+            new_headline = self._create_headline_from_content(slide_data, retry=True)
+            new_quality = self.sowhat_tester.evaluate(new_headline)
+            retry_count += 1
+        
+        return new_headline
+    
+    def _generate_presentation_title(self, first_slide_data: Dict) -> str:
+        """
+        프레젠테이션 메인 타이틀 생성
+        
+        Args:
+            first_slide_data: 첫 번째 슬라이드 데이터
+        
+        Returns:
+            프레젠테이션 타이틀
+        """
+        # 콘텐츠에서 핵심 주제 추출
+        content = first_slide_data.get('content', [])
+        
+        if isinstance(content, list) and content:
+            # 첫 번째 콘텐츠 항목 사용
+            main_topic = str(content[0])
+        elif isinstance(content, str):
+            main_topic = content
+        else:
+            main_topic = "전략적 제안"
+        
+        # 간단하고 명확한 타이틀 반환
+        # (첫 슬라이드는 보통 간단한 타이틀만 필요)
+        return main_topic[:50]  # 최대 50자
+    
+    def _create_headline_from_content(
+        self, 
+        slide_data: Dict, 
+        retry: bool = False
+    ) -> str:
+        """
+        슬라이드 콘텐츠로부터 헤드라인 생성
+        
+        Args:
+            slide_data: 슬라이드 데이터
+            retry: 재시도 여부 (True면 다른 패턴 시도)
+        
+        Returns:
+            생성된 헤드라인
+        """
+        content = slide_data.get('content', [])
+        
+        # 콘텐츠를 분석하여 적절한 패턴 선택
+        pattern_type = self._detect_content_pattern(content, retry)
+        
+        # 패턴별 헤드라인 생성
+        if pattern_type == 'growth':
+            return self._generate_growth_headline(content)
+        elif pattern_type == 'comparison':
+            return self._generate_comparison_headline(content)
+        elif pattern_type == 'strategic':
+            return self._generate_strategic_headline(content)
+        elif pattern_type == 'financial':
+            return self._generate_financial_headline(content)
+        else:
+            # 기본: Strategic 패턴
+            return self._generate_strategic_headline(content)
+    
+    def _detect_content_pattern(self, content: List, retry: bool = False) -> str:
+        """
+        콘텐츠 분석하여 적절한 헤드라인 패턴 감지
+        
+        Args:
+            content: 슬라이드 콘텐츠
+            retry: 재시도 여부 (True면 다른 패턴 반환)
+        
+        Returns:
+            패턴 타입: 'growth' | 'comparison' | 'strategic' | 'financial'
+        """
+        content_text = ' '.join(str(item) for item in content).lower()
+        
+        # 키워드 기반 패턴 감지
+        if retry:
+            # 재시도 시 Strategic 또는 Financial 사용
+            return 'strategic' if 'strategic' not in content_text else 'financial'
+        
+        # Growth 패턴 감지
+        growth_keywords = ['성장', '증가', '확대', '상승', '%', '배']
+        if any(keyword in content_text for keyword in growth_keywords):
+            return 'growth'
+        
+        # Comparison 패턴 감지
+        comparison_keywords = ['대비', '비교', '경쟁', '차이', '우위']
+        if any(keyword in content_text for keyword in comparison_keywords):
+            return 'comparison'
+        
+        # Financial 패턴 감지
+        financial_keywords = ['억', '조', '원', '매출', '수익', '비용', '절감']
+        if any(keyword in content_text for keyword in financial_keywords):
+            return 'financial'
+        
+        # 기본값: Strategic
+        return 'strategic'
+    
+    def _generate_growth_headline(self, content: List) -> str:
+        """Growth 패턴 헤드라인 생성"""
+        # 콘텐츠에서 주체, 기간, 수치, 결과 추출 시도
+        context = {
+            'subject': self._extract_subject(content),
+            'period': self._extract_period(content),
+            'metric': self._extract_metric(content),
+            'result': self._extract_result(content)
+        }
+        
+        return self.headline_generator.generate_headline('growth', context)
+    
+    def _generate_comparison_headline(self, content: List) -> str:
+        """Comparison 패턴 헤드라인 생성"""
+        context = {
+            'subject': self._extract_subject(content),
+            'comparison': self._extract_comparison(content),
+            'metric': self._extract_metric(content),
+            'result': self._extract_result(content)
+        }
+        
+        return self.headline_generator.generate_headline('comparison', context)
+    
+    def _generate_strategic_headline(self, content: List) -> str:
+        """Strategic 패턴 헤드라인 생성"""
+        context = {
+            'subject': self._extract_subject(content),
+            'strength': self._extract_strength(content),
+            'metric': self._extract_metric(content),
+            'goal': self._extract_goal(content)
+        }
+        
+        return self.headline_generator.generate_headline('strategic', context)
+    
+    def _generate_financial_headline(self, content: List) -> str:
+        """Financial 패턴 헤드라인 생성"""
+        context = {
+            'strategy': self._extract_strategy(content),
+            'period': self._extract_period(content),
+            'amount': self._extract_amount(content),
+            'goal': self._extract_goal(content)
+        }
+        
+        return self.headline_generator.generate_headline('financial', context)
+    
+    # === 콘텐츠 추출 헬퍼 메서드 ===
+    
+    def _extract_subject(self, content: List) -> str:
+        """주체 추출 (주어)"""
+        if not content:
+            return "핵심 사업"
+        
+        # 첫 번째 명사구 또는 첫 문장의 주어
+        first_item = str(content[0]) if content else "사업"
+        
+        # 간단한 명사 추출 (10자 이내)
+        words = first_item.split()
+        for word in words[:3]:
+            if len(word) <= 10 and word not in ['은', '는', '이', '가']:
+                return word
+        
+        return "핵심 영역"
+    
+    def _extract_period(self, content: List) -> str:
+        """기간 추출"""
+        content_text = ' '.join(str(item) for item in content)
+        
+        # 기간 패턴 추출
+        import re
+        period_patterns = [
+            r'(\d+년)',
+            r'(\d+개월)',
+            r'(\d+분기)',
+            r'(단기|중기|장기)'
+        ]
+        
+        for pattern in period_patterns:
+            match = re.search(pattern, content_text)
+            if match:
+                return match.group(1)
+        
+        return "3년"  # 기본값
+    
+    def _extract_metric(self, content: List) -> str:
+        """수치 지표 추출 (%, 배수 등)"""
+        content_text = ' '.join(str(item) for item in content)
+        
+        import re
+        # 숫자 + 단위 패턴
+        metric_patterns = [
+            r'(\d+\.?\d*%)',
+            r'(\d+\.?\d*배)',
+            r'(\d+\.?\d*포인트)'
+        ]
+        
+        for pattern in metric_patterns:
+            match = re.search(pattern, content_text)
+            if match:
+                return match.group(1)
+        
+        return "50%"  # 기본값
+    
+    def _extract_result(self, content: List) -> str:
+        """결과/성과 추출"""
+        # 긍정적 결과 키워드
+        positive_results = [
+            '성장', '달성', '확보', '실현', '개선',
+            '증대', '강화', '향상', '기회', '리더십'
+        ]
+        
+        content_text = ' '.join(str(item) for item in content)
+        
+        for result in positive_results:
+            if result in content_text:
+                return f"{result} 가능"
+        
+        return "목표 달성"
+    
+    def _extract_comparison(self, content: List) -> str:
+        """비교 대상 추출"""
+        content_text = ' '.join(str(item) for item in content)
+        
+        comparison_keywords = ['경쟁사', '업계', '평균', '전년']
+        
+        for keyword in comparison_keywords:
+            if keyword in content_text:
+                return keyword
+        
+        return "경쟁사"
+    
+    def _extract_strength(self, content: List) -> str:
+        """강점/특성 추출"""
+        strength_keywords = [
+            '혁신', '효율화', '차별화', '경쟁력',
+            '기술력', '브랜드', '네트워크'
+        ]
+        
+        content_text = ' '.join(str(item) for item in content)
+        
+        for strength in strength_keywords:
+            if strength in content_text:
+                return strength
+        
+        return "핵심 역량"
+    
+    def _extract_goal(self, content: List) -> str:
+        """목표 추출"""
+        goal_keywords = [
+            '수익성', '시장점유율', '성장', '경쟁력',
+            '고객만족', '효율성', '혁신'
+        ]
+        
+        content_text = ' '.join(str(item) for item in content)
+        
+        for goal in goal_keywords:
+            if goal in content_text:
+                return f"{goal} 목표"
+        
+        return "전략 목표"
+    
+    def _extract_strategy(self, content: List) -> str:
+        """전략/방법 추출"""
+        strategy_keywords = [
+            '디지털 전환', '프로세스 개선', '투자 확대',
+            '구조조정', 'M&A', '제휴', '혁신'
+        ]
+        
+        content_text = ' '.join(str(item) for item in content)
+        
+        for strategy in strategy_keywords:
+            if strategy in content_text:
+                return strategy
+        
+        return "전략적 실행"
+    
+    def _extract_amount(self, content: List) -> str:
+        """금액 추출"""
+        content_text = ' '.join(str(item) for item in content)
+        
+        import re
+        amount_patterns = [
+            r'(\d+억원?)',
+            r'(\d+조원?)',
+            r'(\d+만원?)'
+        ]
+        
+        for pattern in amount_patterns:
+            match = re.search(pattern, content_text)
+            if match:
+                return match.group(1)
+        
+        return "30억원"  # 기본값
+
+Step 2.3: 기존 generate_slide_content() 메서드 수정
+위치: ContentGenerator 클래스 내부
+pythonclass ContentGenerator:
+    
+    async def generate_slide_content(
+        self, 
+        structure: Dict, 
+        data: Dict
+    ) -> List[Dict]:
+        """
+        슬라이드 콘텐츠 생성 (헤드라인 자동 적용)
+        
+        Args:
+            structure: 슬라이드 구조
+            data: 원본 데이터
+        
+        Returns:
+            슬라이드 데이터 리스트
+        """
+        logger.info("=== ContentGenerator: 콘텐츠 생성 시작 ===")
+        
+        # 기존 로직으로 슬라이드 생성
+        slides_data = await self._generate_initial_slides(structure, data)
+        
+        # ✅ 모든 슬라이드에 헤드라인 적용
+        logger.info("=== HeadlineGenerator: 헤드라인 생성 시작 ===")
+        
+        for i, slide_data in enumerate(slides_data):
+            try:
+                # 헤드라인 생성 또는 개선
+                headline = self._generate_or_enhance_headline(slide_data, i)
+                
+                # 슬라이드 데이터에 적용
+                slide_data['headline'] = headline
+                slide_data['title'] = headline  # title 필드도 동기화
+                
+                logger.info(f"Slide {i}: 헤드라인 적용 완료 - \"{headline[:50]}...\"")
+                
+            except Exception as e:
+                logger.error(f"Slide {i}: 헤드라인 생성 실패 - {e}")
+                # 실패 시 기본 타이틀
+                slide_data['headline'] = f"Slide {i + 1}"
+                slide_data['title'] = f"Slide {i + 1}"
+        
+        logger.info(f"=== 총 {len(slides_data)}개 슬라이드 헤드라인 생성 완료 ===")
+        
+        return slides_data
+    
+    async def _generate_initial_slides(
+        self, 
+        structure: Dict, 
+        data: Dict
+    ) -> List[Dict]:
+        """
+        초기 슬라이드 생성 (기존 로직 유지)
+        
+        이 메서드는 기존 코드를 그대로 유지하거나
+        약간 리팩토링하여 사용
+        """
+        # 기존 generate_slide_content의 로직을
+        # 여기로 이동 (헤드라인 생성 제외)
+        
+        # ... 기존 코드 ...
+        
+        pass
+
+Step 2.4: 통합 테스트 코드 작성
+파일: test_headline_integration.py (임시 테스트)
+python"""
+HeadlineGenerator + ContentGenerator 통합 테스트
+"""
+
+import sys
+sys.path.append('/app')
+
+from app.services.content_generator import ContentGenerator
+import asyncio
+
+
+async def test_integration():
+    """통합 테스트"""
+    
+    print("=== HeadlineGenerator 통합 테스트 시작 ===\n")
+    
+    # ContentGenerator 초기화
+    generator = ContentGenerator()
+    
+    # 테스트용 슬라이드 데이터
+    test_slides = [
+        {
+            'content': ['신제품 출시로 매출 50% 증가', '아시아 시장 진출 성공'],
+            'type': 'executive_summary'
+        },
+        {
+            'content': ['경쟁사 대비 2배 빠른 성장', '시장 점유율 30% 확보'],
+            'type': 'analysis'
+        },
+        {
+            'content': ['운영 효율화로 30억원 비용 절감', '2년 내 목표 달성 가능'],
+            'type': 'financial'
+        },
+        {
+            'content': ['디지털 전환 추진', '고객 경험 개선', '매출 증대'],
+            'type': 'strategy'
+        }
+    ]
+    
+    # 각 슬라이드에 헤드라인 생성
+    for i, slide_data in enumerate(test_slides):
+        print(f"--- Slide {i + 1} ---")
+        print(f"콘텐츠: {slide_data['content']}")
+        
+        headline = generator._generate_or_enhance_headline(slide_data, i)
+        quality = generator.sowhat_tester.evaluate(headline)
+        
+        print(f"생성된 헤드라인: {headline}")
+        print(f"품질 점수: {quality:.2f}")
+        print()
+    
+    print("=== 통합 테스트 완료 ===")
+
+
+if __name__ == "__main__":
+    asyncio.run(test_integration())
+
+✅ 실행 단계
+1. 코드 수정 적용
+bash# app/services/content_generator.py 파일 수정
+# (위의 코드를 적용)
+2. Docker 재빌드
+bashcd D:\PPT_Designer_OK\mckinsey-ppt-generator
+docker-compose down
+docker-compose up --build -d
+3. 통합 테스트 실행
+bash# 테스트 파일 생성
+# test_headline_integration.py
+
+# 컨테이너로 복사
+docker cp test_headline_integration.py mckinsey-ppt-generator-app-1:/app/
+
+# 실행
+docker exec mckinsey-ppt-generator-app-1 python /app/test_headline_integration.py
+
+# 정리
+docker exec mckinsey-ppt-generator-app-1 rm /app/test_headline_integration.py
+```
+
+---
+
+## 📊 예상 결과
+
+### 성공 기준
+```
+✅ 모든 슬라이드에 헤드라인 자동 생성
+✅ 품질 점수 0.80 이상 달성
+✅ McKinsey 4가지 패턴 자동 적용
+✅ 저품질 헤드라인 자동 재생성
+```
+
+### 출력 예시
+```
+=== HeadlineGenerator 통합 테스트 시작 ===
+
+--- Slide 1 ---
+콘텐츠: ['신제품 출시로 매출 50% 증가', '아시아 시장 진출 성공']
+생성된 헤드라인: 신제품이 아시아 시장에서 3년 내 50% 성장하여 최대 기회 제공
+품질 점수: 0.88
+
+--- Slide 2 ---
+콘텐츠: ['경쟁사 대비 2배 빠른 성장', '시장 점유율 30% 확보']
+생성된 헤드라인: 경쟁사 대비 2배 빠른 혁신으로 시장 리더십 확보
+품질 점수: 0.85
+
+--- Slide 3 ---
+콘텐츠: ['운영 효율화로 30억원 비용 절감', '2년 내 목표 달성 가능']
+생성된 헤드라인: 운영 효율화로 2년 내 30억원 비용 절감 실현
+품질 점수: 0.91
+
+--- Slide 4 ---
+콘텐츠: ['디지털 전환 추진', '고객 경험 개선', '매출 증대']
+생성된 헤드라인: 디지털 전환의 핵심 역량이 50% 개선으로 전략 목표 달성 가능
+품질 점수: 0.83
+
+=== 통합 테스트 완료 ===
+```
+
+---
+
+## 🎯 통합 완료 후 효과
+
+### Clarity 점수 개선
+```
+Before: 0.40 (타이틀 누락/저품질)
+After:  0.90 (McKinsey 헤드라인 자동 생성)
+개선폭: +0.50
+```
+
+### 전체 품질 점수 기여
+```
+현재 총점: 0.503
+Clarity 기여: +0.10 (0.50 × 20%)
+예상 총점: 0.603
+
+목표 달성률: 71% (0.603 / 0.850)

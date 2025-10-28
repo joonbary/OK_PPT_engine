@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 5: 품질 검토</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .stage-container {
+            background-color: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            padding: 24px;
+            width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stage-header {
+            font-size: 20px;
+            font-weight: 600;
+            border-bottom: 1px solid #d9d9d9;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .final-score-summary {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .final-score-summary .score {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1890ff;
+        }
+        .final-score-summary .status {
+            font-size: 16px;
+            color: #52c41a;
+            font-weight: 500;
+        }
+        .detailed-scores, .improvement-suggestion {
+            background-color: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .detailed-scores h3, .improvement-suggestion h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .score-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .score-item .label {
+            width: 120px;
+        }
+        .score-item .bar-container {
+            flex-grow: 1;
+            height: 12px;
+            background-color: #e8e8e8;
+            border-radius: 6px;
+            margin-right: 8px;
+        }
+        .score-item .bar {
+            height: 100%;
+            background-color: #52c41a;
+            border-radius: 6px;
+        }
+        .improvement-suggestion .area {
+            font-weight: bold;
+            color: #faad14;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-buttons .download-btn {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="stage-container">
+    <div class="stage-header">Stage 5: 품질 검토</div>
+
+    <div class="final-score-summary">
+        <div class="score">🏆 최종 품질 점수: <span id="total-score"></span> / 1.000</div>
+        <div class="status" id="pass-status"></div>
+    </div>
+
+    <div class="detailed-scores">
+        <h3>📊 세부 점수:</h3>
+        <div id="score-details"></div>
+    </div>
+
+    <div class="improvement-suggestion">
+        <h3>💡 개선 제안:</h3>
+        <div id="suggestions"></div>
+    </div>
+
+    <div class="action-buttons">
+        <button id="prev-stage-btn" class="prev-btn">← 이전 단계</button>
+        <div>
+            <button id="reevaluate-btn">🔄 재검토</button>
+            <button id="save-btn">💾 저장</button>
+            <button id="download-btn" class="download-btn">📥 다운로드</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const mockData = {
+            "total_score": 0.873,
+            "passed": true,
+            "scores": {
+                "Clarity": 0.931,
+                "Insight": 0.800,
+                "Structure": 0.720,
+                "Visual": 0.950,
+                "Actionability": 1.000
+            },
+            "improvements": [
+                {
+                    "area": "Structure",
+                    "issue": "슬라이드 7-9의 논리적 연결 미흡",
+                    "suggestion": "전환 슬라이드 추가 권장"
+                }
+            ]
+        };
+
+        document.getElementById('total-score').textContent = mockData.total_score;
+        const passStatus = document.getElementById('pass-status');
+        if (mockData.passed) {
+            passStatus.textContent = '✅ 목표 달성 (기준: 0.85)';
+            passStatus.style.color = '#52c41a';
+        } else {
+            passStatus.textContent = '❌ 목표 미달';
+            passStatus.style.color = '#f5222d';
+        }
+
+        const scoreDetailsContainer = document.getElementById('score-details');
+        for (const [key, value] of Object.entries(mockData.scores)) {
+            const item = document.createElement('div');
+            item.className = 'score-item';
+            item.innerHTML = `
+                <span class="label">${key}:</span>
+                <div class="bar-container">
+                    <div class="bar" style="width: ${value * 100}%;"></div>
+                </div>
+                <span class="value">${value.toFixed(3)}</span>
+            `;
+            scoreDetailsContainer.appendChild(item);
+        }
+
+        const suggestionsContainer = document.getElementById('suggestions');
+        mockData.improvements.forEach(imp => {
+            const item = document.createElement('div');
+            item.innerHTML = `
+                <p><span class="area">⚠️ ${imp.area} 영역:</span> "${imp.issue}"</p>
+                <p>→ ${imp.suggestion}</p>
+            `;
+            suggestionsContainer.appendChild(item);
+        });
+
+        document.getElementById('prev-stage-btn').addEventListener('click', () => {
+            window.location.href = 'stage4_ui.html';
+        });
+
+        document.getElementById('download-btn').addEventListener('click', () => {
+            alert('PPTX 파일을 다운로드합니다.');
+        });
+        document.getElementById('save-btn').addEventListener('click', () => {
+            alert('결과를 저장합니다.');
+        });
+        document.getElementById('reevaluate-btn').addEventListener('click', () => {
+            alert('품질 검토를 다시 실행합니다.');
+        });
+    });
+</script>
+
+</body>
+</html>

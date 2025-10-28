@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McKinsey PPT Generator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+        
+        .navbar {
+            background: linear-gradient(135deg, #0070C0, #002E6C);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar h1 { font-size: 1.5rem; font-weight: 600; }
+        .navbar .user-menu { display: flex; gap: 1rem; align-items: center; }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .auth-container {
+            max-width: 400px;
+            margin: 5rem auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .auth-container h2 {
+            color: #002E6C;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #0070C0;
+            box-shadow: 0 0 0 3px rgba(0,112,192,0.1);
+        }
+        
+        .btn {
+            background: #0070C0;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover { background: #005090; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .btn-secondary {
+            background: transparent;
+            color: #0070C0;
+            border: 1px solid #0070C0;
+        }
+        
+        .btn-secondary:hover {
+            background: #0070C0;
+            color: white;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .card h3 {
+            color: #002E6C;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #0070C0;
+        }
+        
+        .presentation-list {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-top: 2rem;
+        }
+        
+        .presentation-item {
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .presentation-item:hover {
+            background: #f9f9f9;
+            border-color: #0070C0;
+        }
+        
+        .alert {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+        
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border-color: #ffcdd2;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #c8e6c9;
+        }
+        
+        .create-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-top: 2rem;
+        }
+        
+        .slide-editor {
+            display: grid;
+            grid-template-columns: 200px 1fr 300px;
+            gap: 1rem;
+            height: calc(100vh - 100px);
+            margin-top: 1rem;
+        }
+        
+        .slide-list {
+            background: white;
+            padding: 1rem;
+            border-radius: 10px;
+            overflow-y: auto;
+        }
+        
+        .slide-preview {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .slide-properties {
+            background: white;
+            padding: 1rem;
+            border-radius: 10px;
+            overflow-y: auto;
+        }
+        
+        .slide-thumbnail {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 2px solid transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            background: #f5f5f5;
+        }
+        
+        .slide-thumbnail.active {
+            border-color: #0070C0;
+            background: #e3f2fd;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const API_URL = 'http://localhost:8000';
+        
+        // API Service
+        const api = {
+            login: async (username, password) => {
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+                
+                const response = await axios.post(`${API_URL}/api/v1/auth/login`, formData);
+                return response.data;
+            },
+            
+            register: async (data) => {
+                const response = await axios.post(`${API_URL}/api/v1/auth/register`, data);
+                return response.data;
+            },
+            
+            getPresentations: async (token) => {
+                const response = await axios.get(`${API_URL}/api/v1/presentations`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                return response.data;
+            },
+            
+            generatePresentation: async (data, token) => {
+                const response = await axios.post(`${API_URL}/api/v1/presentations/generate`, data, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                return response.data;
+            }
+        };
+        
+        // Components
+        function LoginForm({ onLogin }) {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const data = await api.login(username, password);
+                    localStorage.setItem('token', data.access_token);
+                    onLogin(data.access_token);
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'Login failed');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <div className="auth-container">
+                    <h2>Login to McKinsey PPT Generator</h2>
+                    {error && <div className="alert alert-error">{error}</div>}
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label>Username or Email</label>
+                            <input 
+                                type="text" 
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Password</label>
+                            <input 
+                                type="password" 
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <button type="submit" className="btn" disabled={loading}>
+                            {loading ? 'Loading...' : 'Login'}
+                        </button>
+                    </form>
+                    <div style={{marginTop: '1rem', textAlign: 'center'}}>
+                        <small>Test Account: testuser / TestPass123</small>
+                    </div>
+                </div>
+            );
+        }
+        
+        function Dashboard({ token, onLogout }) {
+            const [presentations, setPresentations] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [showCreate, setShowCreate] = useState(false);
+            
+            useEffect(() => {
+                loadPresentations();
+            }, []);
+            
+            const loadPresentations = async () => {
+                try {
+                    const data = await api.getPresentations(token);
+                    setPresentations(data.presentations || []);
+                } catch (err) {
+                    console.error('Failed to load presentations:', err);
+                }
+            };
+            
+            const handleCreate = async () => {
+                setLoading(true);
+                try {
+                    const data = await api.generatePresentation({
+                        topic: "Digital Transformation Strategy",
+                        purpose: "executive_summary",
+                        target_audience: "C-Suite Executives",
+                        slide_count: 5
+                    }, token);
+                    alert('Presentation created successfully!');
+                    loadPresentations();
+                    setShowCreate(false);
+                } catch (err) {
+                    alert('Failed to create presentation: ' + (err.response?.data?.detail || err.message));
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <div>
+                    <div className="navbar">
+                        <h1>McKinsey PPT Generator</h1>
+                        <div className="user-menu">
+                            <span>Welcome!</span>
+                            <button className="btn" onClick={onLogout}>Logout</button>
+                        </div>
+                    </div>
+                    
+                    <div className="container">
+                        <div className="dashboard">
+                            <div className="card">
+                                <h3>Total Presentations</h3>
+                                <div className="stat-value">{presentations.length}</div>
+                            </div>
+                            <div className="card">
+                                <h3>This Month</h3>
+                                <div className="stat-value">
+                                    {presentations.filter(p => {
+                                        const date = new Date(p.created_at);
+                                        const now = new Date();
+                                        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+                                    }).length}
+                                </div>
+                            </div>
+                            <div className="card">
+                                <h3>Quick Actions</h3>
+                                <button className="btn" onClick={() => setShowCreate(true)}>
+                                    Create New Presentation
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {showCreate && (
+                            <div className="create-form">
+                                <h3>Create New Presentation</h3>
+                                <p>Generate a professional presentation with AI</p>
+                                <button className="btn" onClick={handleCreate} disabled={loading}>
+                                    {loading ? 'Generating...' : 'Generate Sample Presentation'}
+                                </button>
+                                <button className="btn btn-secondary" onClick={() => setShowCreate(false)} style={{marginTop: '1rem'}}>
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+                        
+                        <div className="presentation-list">
+                            <h3>Your Presentations</h3>
+                            {presentations.length === 0 ? (
+                                <div className="alert">No presentations yet. Create your first one!</div>
+                            ) : (
+                                presentations.map((pres) => (
+                                    <div key={pres.id} className="presentation-item">
+                                        <div>
+                                            <strong>{pres.title}</strong>
+                                            <div><small>{pres.slide_count} slides • {new Date(pres.created_at).toLocaleDateString()}</small></div>
+                                        </div>
+                                        <div>
+                                            <button className="btn btn-secondary">View</button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        function App() {
+            const [token, setToken] = useState(localStorage.getItem('token'));
+            
+            const handleLogin = (newToken) => {
+                setToken(newToken);
+            };
+            
+            const handleLogout = () => {
+                localStorage.removeItem('token');
+                setToken(null);
+            };
+            
+            if (!token) {
+                return <LoginForm onLogin={handleLogin} />;
+            }
+            
+            return <Dashboard token={token} onLogout={handleLogout} />;
+        }
+        
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

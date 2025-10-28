@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 1: 문서 분석</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .stage-container {
+            background-color: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            padding: 24px;
+            width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stage-header {
+            font-size: 20px;
+            font-weight: 600;
+            border-bottom: 1px solid #d9d9d9;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .input-area {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .input-area button {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #1890ff;
+            background-color: #e6f7ff;
+            color: #1890ff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .input-area button:hover {
+            background-color: #bae7ff;
+        }
+        #file-upload {
+            display: none;
+        }
+        .status-area, .result-area {
+            background-color: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .status-info, .progress-bar-container {
+            margin-bottom: 12px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: #e8e8e8;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-bar-inner {
+            width: 0;
+            height: 100%;
+            background-color: #52c41a;
+            transition: width 0.5s ease-in-out;
+        }
+        .result-preview {
+            font-size: 14px;
+        }
+        .result-preview h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .result-preview ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .result-preview li {
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-buttons .next-btn {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .action-buttons .next-btn:disabled {
+            background-color: #a0d9ff;
+            border-color: #a0d9ff;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="stage-container">
+    <div class="stage-header">Stage 1: 문서 분석</div>
+    
+    <div class="input-area">
+        <input type="file" id="file-upload">
+        <button id="upload-btn">📄 파일 업로드</button>
+        <button id="text-input-btn">✍️ 텍스트 직접 입력</button>
+    </div>
+
+    <div class="status-area" style="display: none;">
+        <div class="status-info">
+            📄 업로드된 파일: <span id="file-name"></span>
+        </div>
+        <div class="progress-bar-container">
+            <span>⏱️ 분석 진행률:</span>
+            <div class="progress-bar">
+                <div class="progress-bar-inner" id="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="result-area" style="display: none;">
+        <div class="result-preview">
+            <h3>🔍 분석 결과 미리보기:</h3>
+            <ul id="result-list">
+                <!-- Results will be populated by JS -->
+            </ul>
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <button id="analysis-complete-btn" class="next-btn" disabled>✓ 분석 완료</button>
+        <button id="next-stage-btn" class="next-btn" disabled>→ 다음 단계</button>
+    </div>
+</div>
+
+<script>
+    const uploadBtn = document.getElementById('upload-btn');
+    const fileUpload = document.getElementById('file-upload');
+    const textInputBtn = document.getElementById('text-input-btn');
+    
+    const statusArea = document.querySelector('.status-area');
+    const resultArea = document.querySelector('.result-area');
+    const fileNameSpan = document.getElementById('file-name');
+    const progressBar = document.getElementById('progress-bar');
+    
+    const resultList = document.getElementById('result-list');
+    const analysisCompleteBtn = document.getElementById('analysis-complete-btn');
+    const nextStageBtn = document.getElementById('next-stage-btn');
+
+    uploadBtn.addEventListener('click', () => fileUpload.click());
+    
+    fileUpload.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            fileNameSpan.textContent = file.name;
+            statusArea.style.display = 'block';
+            resultArea.style.display = 'none';
+            analysisCompleteBtn.disabled = true;
+            nextStageBtn.disabled = true;
+            resultList.innerHTML = '';
+            startAnalysis();
+        }
+    });
+
+    textInputBtn.addEventListener('click', () => {
+        // In a real app, this would open a modal or a text area
+        alert('텍스트 직접 입력 기능은 현재 구현 중입니다.');
+    });
+
+    function startAnalysis() {
+        let progress = 0;
+        progressBar.style.width = '0%';
+
+        const interval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress > 100) {
+                progress = 100;
+            }
+            progressBar.style.width = progress + '%';
+
+            if (progress === 100) {
+                clearInterval(interval);
+                displayResults();
+            }
+        }, 200);
+    }
+
+    function displayResults() {
+        const mockResults = {
+            "core_message": "아시아 시장이 3년 내 50% 성장 예상",
+            "data_points": 12,
+            "key_topics": ["시장분석", "성장전략", "경쟁우위"],
+        };
+
+        resultList.innerHTML = `
+            <li>• 핵심 메시지: "${mockResults.core_message}"</li>
+            <li>• 데이터 포인트: ${mockResults.data_points}개 발견</li>
+            <li>• 주요 토픽: ${mockResults.key_topics.join(', ')}</li>
+        `;
+        
+        resultArea.style.display = 'block';
+        analysisCompleteBtn.disabled = false;
+        nextStageBtn.disabled = false;
+    }
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,323 @@
+🎯 다음 작업: Phase 1 - 시스템 기초 인프라 구축
+왜 이 작업이 필요한가?
+현재 구축된 컴포넌트들:
+
+✅ 품질 검증/수정 시스템 (SlideValidator, SlideFixer)
+✅ 일부 서비스 로직 (ContentGenerator, QualityController)
+
+하지만 누락된 핵심 요소들:
+
+❌ FastAPI 서버 및 API 엔드포인트
+❌ LLM 통합 시스템 (Claude-3, GPT-4 연결)
+❌ 데이터베이스 연결 (PostgreSQL, Redis)
+❌ 멀티 에이전트 오케스트레이션
+❌ 백그라운드 작업 처리 (Celery)
+
+즉, 엔진은 있지만 차체가 없는 상태입니다.
+
+📋 Claude Code 작업 지시서 #1
+Task 1.1: FastAPI 프로젝트 기초 인프라 구축
+🎯 작업 목표:
+McKinsey PPT 자동 생성 시스템의 FastAPI 기반 서버 인프라를 구축합니다.
+
+📂 작업 위치: D:\PPT_Designer_OK
+
+🔧 구현 내용:
+
+1️⃣ 프로젝트 구조 재구성
+   - 기존 app/ 디렉토리 구조 유지하면서 누락된 폴더 추가
+   - 생성 필요한 디렉토리:
+     * app/api/routes/      # API 엔드포인트
+     * app/core/config.py   # 환경설정
+     * app/core/security.py # 보안 설정
+     * app/db/              # 데이터베이스 모델
+     * app/schemas/         # Pydantic 스키마
+   
+2️⃣ FastAPI 메인 애플리케이션 생성
+   파일: app/main.py
+   
+   구현 사항:
+   - FastAPI 앱 인스턴스 생성
+   - CORS 미들웨어 설정
+   - 로깅 시스템 구축 (loguru)
+   - 글로벌 예외 핸들러
+   - 헬스체크 엔드포인트 (/health, /version)
+   - API 라우터 등록 준비
+   
+   코드 예시 기반:
+```python
+   from fastapi import FastAPI
+   from fastapi.middleware.cors import CORSMiddleware
+   from loguru import logger
+   
+   app = FastAPI(
+       title="McKinsey-Level PPT Generation API",
+       version="1.0.0",
+       description="멀티 에이전트 기반 전문 컨설팅 PPT 자동 생성 시스템"
+   )
+   
+   # CORS 설정
+   app.add_middleware(
+       CORSMiddleware,
+       allow_origins=["*"],
+       allow_credentials=True,
+       allow_methods=["*"],
+       allow_headers=["*"],
+   )
+   
+   @app.get("/health")
+   async def health_check():
+       return {"status": "healthy"}
+3️⃣ 환경 설정 시스템
+파일: app/core/config.py
+구현 사항:
+
+Pydantic BaseSettings 사용
+환경 변수 관리
+.env 파일 지원
+
+필수 환경 변수:
+
+OPENAI_API_KEY
+ANTHROPIC_API_KEY
+DATABASE_URL
+REDIS_URL
+APP_ENV (development/production)
+LOG_LEVEL
+
+4️⃣ requirements.txt 업데이트
+추가 필요 패키지:
+   fastapi==0.104.1
+   uvicorn[standard]==0.24.0
+   pydantic==2.5.0
+   pydantic-settings==2.1.0
+   python-dotenv==1.0.0
+   loguru==0.7.2
+   httpx==0.25.2
+   tenacity==8.2.3
+5️⃣ .env.example 파일 생성
+환경 변수 템플릿 제공
+6️⃣ 로깅 시스템 구축
+파일: app/core/logging.py
+구현 사항:
+
+loguru 설정
+파일 로테이션
+로그 레벨별 출력 형식
+
+✅ 완료 기준:
+
+FastAPI 서버가 localhost:8000에서 정상 실행
+Swagger UI (/docs) 접근 가능
+/health 엔드포인트 응답 확인
+로그 파일이 logs/ 디렉토리에 생성
+
+⚠️ 주의사항:
+
+기존 app/services/, app/core/slide_*.py 파일들은 절대 수정하지 말 것
+새로운 파일만 생성하고 기존 구조와 통합
+
+🧪 테스트 방법:
+bash# 서버 실행
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# 테스트
+curl http://localhost:8000/health
+curl http://localhost:8000/docs  # Swagger UI
+
+---
+
+## 📋 Claude Code 작업 지시서 #2
+
+### **Task 1.2: 데이터베이스 및 캐시 연결 설정**
+🎯 작업 목표:
+PostgreSQL과 Redis 연결을 설정하고, 작업 상태 관리를 위한 데이터베이스 모델을 구축합니다.
+📂 작업 위치: D:\PPT_Designer_OK
+🔧 구현 내용:
+1️⃣ 데이터베이스 연결 관리
+파일: app/db/session.py
+구현 사항:
+
+SQLAlchemy async 엔진 설정
+세션 팩토리 생성
+데이터베이스 컨텍스트 매니저
+
+2️⃣ Redis 연결 관리
+파일: app/db/redis_client.py
+구현 사항:
+
+redis-py 비동기 클라이언트
+연결 풀 관리
+캐시 유틸리티 함수
+
+3️⃣ 데이터베이스 모델 정의
+파일: app/db/models.py
+필요한 모델:
+
+PPTGenerationJob (작업 정보)
+
+id, status, input_document, ppt_file_path
+quality_score, created_at, completed_at
+
+
+AgentLog (에이전트 실행 로그)
+QualityMetrics (품질 메트릭)
+
+4️⃣ Pydantic 스키마 정의
+파일: app/schemas/ppt_schemas.py
+필요한 스키마:
+
+PPTRequest (입력)
+PPTResponse (출력)
+StatusResponse (상태 조회)
+
+5️⃣ Alembic 마이그레이션 설정
+
+alembic init alembic
+초기 마이그레이션 스크립트 생성
+
+6️⃣ requirements.txt 추가
+   sqlalchemy[asyncio]==2.0.23
+   asyncpg==0.29.0
+   alembic==1.13.0
+   redis[hiredis]==5.0.1
+✅ 완료 기준:
+
+PostgreSQL 연결 테스트 성공
+Redis ping 성공
+데이터베이스 테이블 생성 완료
+마이그레이션 실행 가능
+
+🧪 테스트 방법:
+python# app/tests/test_database.py 생성
+import pytest
+from app.db.session import get_db
+from app.db.redis_client import get_redis
+
+@pytest.mark.asyncio
+async def test_database_connection():
+    async for db in get_db():
+        assert db is not None
+
+@pytest.mark.asyncio
+async def test_redis_connection():
+    redis = await get_redis()
+    assert await redis.ping()
+
+---
+
+## 📋 Claude Code 작업 지시서 #3
+
+### **Task 2.1: LLM 통합 시스템 구축**
+🎯 작업 목표:
+Claude-3 Opus와 GPT-4 Turbo를 통합하고, BaseAgent 클래스를 구현합니다.
+📂 작업 위치: D:\PPT_Designer_OK
+🔧 구현 내용:
+1️⃣ LLM 클라이언트 구현
+파일: app/core/llm_client.py
+구현 사항:
+
+AnthropicClient (Claude-3 Opus)
+OpenAIClient (GPT-4 Turbo)
+통합 LLMClient 클래스
+재시도 로직 (tenacity)
+응답 파싱 및 검증
+토큰 카운팅
+Redis 캐싱 통합
+
+2️⃣ BaseAgent 추상 클래스
+파일: app/agents/base_agent.py
+구현 사항:
+
+역할별 LLM 모델 선택
+시스템 프롬프트 로드
+process() 추상 메서드
+에러 핸들링
+로깅
+
+3️⃣ 시스템 프롬프트 관리
+디렉토리: app/prompts/
+파일들:
+
+strategist_prompt.txt
+analyst_prompt.txt
+storyteller_prompt.txt
+designer_prompt.txt
+reviewer_prompt.txt
+
+4️⃣ LLM 응답 캐싱 전략
+
+프롬프트 해시 기반
+TTL 1시간
+캐시 히트/미스 로깅
+
+5️⃣ requirements.txt 추가
+   anthropic==0.8.1
+   openai==1.6.1
+   tiktoken==0.5.2
+   tenacity==8.2.3
+✅ 완료 기준:
+
+Claude-3 API 호출 성공
+GPT-4 API 호출 성공
+캐싱 동작 확인
+BaseAgent 상속 가능
+
+🧪 테스트 방법:
+python# app/tests/test_llm_client.py
+@pytest.mark.asyncio
+async def test_claude_call():
+    client = LLMClient(model="claude-3-opus")
+    response = await client.generate("Hello, Claude!")
+    assert len(response) > 0
+
+@pytest.mark.asyncio
+async def test_caching():
+    client = LLMClient(model="gpt-4-turbo")
+    prompt = "Test prompt"
+    
+    # First call
+    response1 = await client.generate(prompt)
+    
+    # Second call (should hit cache)
+    response2 = await client.generate(prompt)
+    
+    assert response1 == response2
+
+---
+
+## 🗓️ 작업 순서 및 예상 시간
+Day 1: Task 1.1 - FastAPI 인프라 (3-4시간)
+→ 서버 기본 구조 완성
+Day 2: Task 1.2 - 데이터베이스 연결 (3-4시간)
+→ DB 모델 및 연결 완성
+Day 3: Task 2.1 - LLM 통합 (4-5시간)
+→ LLM 클라이언트 및 BaseAgent 완성
+Total: 2-3일
+
+---
+
+## 📊 완료 후 시스템 상태
+✅ 완료될 컴포넌트:
+├── FastAPI 서버 (실행 가능)
+├── 데이터베이스 연결 (PostgreSQL + Redis)
+├── LLM 통합 (Claude-3 + GPT-4)
+├── BaseAgent 시스템
+└── 기존 품질 시스템 (유지)
+🔄 다음 단계:
+├── 5개 특화 에이전트 구현 (Task 3)
+├── 워크플로우 엔진 완성 (Task 4)
+└── API 엔드포인트 구축 (Task 8)
+
+---
+
+## 💡 추가 제안
+
+이 작업들을 완료하면:
+1. **실제 동작하는 API 서버** 확보
+2. **LLM 호출 가능한 환경** 구축
+3. **전체 시스템의 뼈대** 완성
+
+**이후에는** 멀티 에이전트 시스템을 붙여서 실제 PPT 생성이 가능해집니다.
+
+**시작하시겠습니까?** 제가 위의 3개 작업 지시서를 더 상세하게 작성해드릴 수도 있습니다! 🚀재시도Claude는 실수를 할 수 있습니다. 응답을 반드시 다시 확인해 주세요.

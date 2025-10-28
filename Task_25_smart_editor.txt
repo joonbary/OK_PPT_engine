@@ -1,0 +1,449 @@
+# 🎯 Claude Code 작업 지시서 - 사용자 편의성 강화 (계속)
+
+## 📍 현재 프로젝트 상태
+
+**프로젝트:** McKinsey 수준 PPT 자동 생성 시스템  
+**경로:** `D:\PPT_Designer_OK`  
+**현재 단계:** 사용자 편의성 강화 기능 개발 중  
+**품질 점수:** 0.873 (목표 달성 ✅)
+
+---
+
+## 🎬 다음 작업: Task 5.2 - 스마트 편집 & 버전 관리 시스템
+
+### 📋 작업 개요
+
+사용자가 생성된 PPT를 실시간으로 편집하고, 변경 이력을 추적하며, 이전 버전으로 복원할 수 있는 시스템을 구축합니다.
+
+---
+
+## 🔧 작업 1: SmartEditor 구현
+
+### 목표
+생성된 PPT의 개별 슬라이드를 실시간으로 편집할 수 있는 스마트 에디터 시스템
+
+### 구현 파일
+**파일 경로:** `app/services/smart_editor.py`
+
+### 핵심 기능
+
+#### 1. **실시간 콘텐츠 편집**
+```python
+class SmartEditor:
+    """
+    PPT 슬라이드 실시간 편집 시스템
+    """
+    
+    async def edit_slide_content(
+        self,
+        ppt_path: str,
+        slide_index: int,
+        edit_request: EditRequest
+    ) -> EditResult:
+        """
+        슬라이드 콘텐츠 편집
+        
+        Args:
+            ppt_path: PPT 파일 경로
+            slide_index: 슬라이드 인덱스 (0부터 시작)
+            edit_request: 편집 요청 객체
+                - edit_type: "headline", "bullet", "chart", "layout"
+                - target_element: 수정 대상 요소 ID
+                - new_content: 새로운 콘텐츠
+                - preserve_style: 스타일 유지 여부 (기본: True)
+        
+        Returns:
+            EditResult 객체 (성공 여부, 변경 사항, 검증 결과)
+        """
+```
+
+#### 2. **헤드라인 수정**
+- So What 테스트 자동 실행
+- McKinsey 패턴 준수 검증
+- 대안 헤드라인 3개 제안
+
+#### 3. **불릿 포인트 편집**
+- MECE 원칙 검증
+- 인사이트 래더 레벨 유지
+- 정량화 데이터 보존
+
+#### 4. **차트 데이터 업데이트**
+- 데이터 일관성 검증
+- 시각화 타입 자동 추천
+- 레이블 자동 조정
+
+#### 5. **레이아웃 변경**
+- 5가지 McKinsey 레이아웃 중 선택
+- 콘텐츠 자동 재배치
+- 오버플로우 자동 해결
+
+### 데이터 모델
+
+```python
+class EditRequest(BaseModel):
+    """편집 요청 모델"""
+    edit_type: Literal["headline", "bullet", "chart", "layout", "style"]
+    target_element: Optional[str]  # 요소 ID (예: "bullet_1", "chart_main")
+    new_content: Union[str, Dict, List]
+    preserve_style: bool = True
+    auto_fix: bool = True  # 자동 수정 활성화
+
+class EditResult(BaseModel):
+    """편집 결과 모델"""
+    success: bool
+    modified_elements: List[str]
+    validation_passed: bool
+    validation_details: Dict[str, Any]
+    suggestions: List[str]  # 개선 제안
+    quality_impact: Dict[str, float]  # 품질 점수 변화
+    rollback_available: bool
+```
+
+### 구현 우선순위
+
+1. **Phase 1 (Day 1)**: 헤드라인 & 불릿 포인트 편집
+   - `edit_headline()` 메서드
+   - `edit_bullet_points()` 메서드
+   - So What 테스트 통합
+   - 실시간 검증
+
+2. **Phase 2 (Day 2)**: 차트 & 레이아웃 편집
+   - `update_chart_data()` 메서드
+   - `change_layout()` 메서드
+   - 자동 재배치 로직
+   - 오버플로우 처리
+
+3. **Phase 3 (Day 3)**: 스타일 편집 & 통합
+   - `apply_style_changes()` 메서드
+   - McKinsey 표준 준수 검증
+   - 전체 시스템 통합
+
+---
+
+## 🔧 작업 2: VersionManager 구현
+
+### 목표
+PPT 변경 이력 추적 및 버전 관리 시스템 구축 (Git 스타일)
+
+### 구현 파일
+**파일 경로:** `app/services/version_manager.py`
+
+### 핵심 기능
+
+#### 1. **버전 생성 & 저장**
+```python
+class VersionManager:
+    """
+    Git 스타일 버전 관리 시스템
+    """
+    
+    async def create_version(
+        self,
+        ppt_path: str,
+        version_message: str,
+        author: str = "system"
+    ) -> Version:
+        """
+        새로운 버전 생성
+        
+        Args:
+            ppt_path: PPT 파일 경로
+            version_message: 버전 설명 (예: "헤드라인 수정", "레이아웃 변경")
+            author: 작성자 (사용자 ID 또는 "system")
+        
+        Returns:
+            Version 객체 (버전 ID, 타임스탬프, 변경 내용)
+        """
+```
+
+#### 2. **변경 이력 추적**
+- **Diff 생성**: 이전 버전과의 차이점 자동 추출
+- **Change Log**: 슬라이드별, 요소별 변경 사항 기록
+- **Author 추적**: 누가, 언제, 무엇을 변경했는지 기록
+
+#### 3. **버전 비교**
+```python
+async def compare_versions(
+    self,
+    version_a: str,  # 버전 ID
+    version_b: str   # 버전 ID
+) -> ComparisonResult:
+    """
+    두 버전 비교
+    
+    Returns:
+        ComparisonResult:
+            - added_slides: 추가된 슬라이드
+            - removed_slides: 제거된 슬라이드
+            - modified_slides: 수정된 슬라이드
+            - content_changes: 콘텐츠 변경 사항
+            - quality_delta: 품질 점수 변화
+    """
+```
+
+#### 4. **버전 복원**
+```python
+async def restore_version(
+    self,
+    ppt_path: str,
+    version_id: str,
+    restore_mode: Literal["full", "selective"] = "full"
+) -> RestoreResult:
+    """
+    이전 버전 복원
+    
+    Args:
+        restore_mode:
+            - "full": 전체 복원
+            - "selective": 특정 슬라이드만 복원
+    """
+```
+
+#### 5. **자동 백업**
+- 편집 작업 전 자동 버전 생성
+- 주요 마일스톤 자동 태깅
+- 정기 백업 스케줄링
+
+### 데이터 모델
+
+```python
+class Version(BaseModel):
+    """버전 정보 모델"""
+    version_id: str  # UUID
+    timestamp: datetime
+    author: str
+    message: str
+    parent_version: Optional[str]  # 이전 버전 ID
+    file_path: str
+    file_hash: str  # SHA-256
+    quality_score: float
+    slide_count: int
+    changes_summary: Dict[str, Any]
+
+class ChangeLog(BaseModel):
+    """변경 로그 모델"""
+    version_id: str
+    timestamp: datetime
+    change_type: Literal["create", "edit", "delete", "restore"]
+    affected_slides: List[int]
+    changes: List[Dict[str, Any]]
+    author: str
+```
+
+### 저장 구조
+
+```
+versions/
+├── {ppt_id}/
+│   ├── v1_2025-01-02_14-30-15.pptx
+│   ├── v2_2025-01-02_14-45-32.pptx
+│   ├── v3_2025-01-02_15-10-22.pptx
+│   ├── metadata.json
+│   └── changelog.json
+```
+
+### 구현 우선순위
+
+1. **Phase 1 (Day 1)**: 버전 생성 & 저장
+   - `create_version()` 메서드
+   - 파일 저장 로직
+   - 메타데이터 관리
+
+2. **Phase 2 (Day 2)**: Diff & 비교
+   - `compare_versions()` 메서드
+   - Diff 알고리즘 구현
+   - 시각화 데이터 생성
+
+3. **Phase 3 (Day 3)**: 복원 & 자동화
+   - `restore_version()` 메서드
+   - 자동 백업 스케줄러
+   - 전체 시스템 통합
+
+---
+
+## 🔧 작업 3: 통합 & 테스트
+
+### FastAPI 엔드포인트 추가
+
+**파일 경로:** `app/api/endpoints/editor.py`
+
+```python
+@router.post("/edit-slide")
+async def edit_slide(
+    ppt_id: str,
+    slide_index: int,
+    edit_request: EditRequest
+) -> EditResult:
+    """슬라이드 편집 API"""
+    editor = SmartEditor()
+    result = await editor.edit_slide_content(...)
+    
+    # 자동 버전 생성
+    version_manager = VersionManager()
+    await version_manager.create_version(
+        ppt_path=result.file_path,
+        version_message=f"Edit: {edit_request.edit_type}",
+        author=current_user.id
+    )
+    
+    return result
+
+@router.get("/versions/{ppt_id}")
+async def get_version_history(ppt_id: str) -> List[Version]:
+    """버전 이력 조회 API"""
+    version_manager = VersionManager()
+    return await version_manager.get_history(ppt_id)
+
+@router.post("/restore-version")
+async def restore_version(
+    ppt_id: str,
+    version_id: str,
+    restore_mode: str = "full"
+) -> RestoreResult:
+    """버전 복원 API"""
+    version_manager = VersionManager()
+    return await version_manager.restore_version(...)
+```
+
+### 테스트 작성
+
+**파일 경로:** `tests/test_smart_editor.py`
+
+```python
+def test_edit_headline_with_validation():
+    """헤드라인 편집 + So What 테스트 검증"""
+    
+def test_edit_bullets_maintain_mece():
+    """불릿 편집 시 MECE 원칙 유지"""
+    
+def test_chart_data_update():
+    """차트 데이터 업데이트 검증"""
+    
+def test_layout_change_auto_reflow():
+    """레이아웃 변경 시 콘텐츠 자동 재배치"""
+```
+
+**파일 경로:** `tests/test_version_manager.py`
+
+```python
+def test_create_version():
+    """버전 생성 테스트"""
+    
+def test_compare_versions():
+    """버전 비교 테스트"""
+    
+def test_restore_version():
+    """버전 복원 테스트"""
+    
+def test_auto_backup():
+    """자동 백업 스케줄러 테스트"""
+```
+
+---
+
+## 📊 예상 결과
+
+### SmartEditor
+- ✅ 실시간 편집 성공률: **95%+**
+- ✅ 자동 검증 정확도: **90%+**
+- ✅ 품질 점수 유지율: **85%+**
+- ✅ 편집 응답 시간: **< 2초**
+
+### VersionManager
+- ✅ 버전 저장 성공률: **100%**
+- ✅ Diff 정확도: **95%+**
+- ✅ 복원 성공률: **100%**
+- ✅ 저장 공간 효율: **80%+** (압축 적용)
+
+---
+
+## 🎯 작업 우선순위
+
+### Week 1
+- **Day 1-2**: SmartEditor 핵심 기능 (헤드라인, 불릿)
+- **Day 3**: SmartEditor 고급 기능 (차트, 레이아웃)
+
+### Week 2
+- **Day 1-2**: VersionManager 핵심 기능
+- **Day 3**: 통합 & 테스트
+
+---
+
+## 🚀 실행 명령어
+
+```bash
+# 1. 새 파일 생성
+touch app/services/smart_editor.py
+touch app/services/version_manager.py
+touch app/api/endpoints/editor.py
+
+# 2. 테스트 파일 생성
+touch tests/test_smart_editor.py
+touch tests/test_version_manager.py
+
+# 3. 개발 시작
+# SmartEditor부터 구현 시작!
+```
+
+---
+
+## 💡 Claude Code에게 전달할 핵심 메시지
+
+### 🎯 목표
+"사용자가 생성된 PPT를 자유롭게 편집하고, 모든 변경 이력을 추적하며, 언제든지 이전 버전으로 돌아갈 수 있는 시스템을 만들어주세요."
+
+### 📋 작업 순서
+1. **SmartEditor 구현** (app/services/smart_editor.py)
+   - 헤드라인, 불릿, 차트, 레이아웃 편집 기능
+   - 실시간 검증 (So What, MECE, 품질 점수)
+   - 자동 수정 기능
+
+2. **VersionManager 구현** (app/services/version_manager.py)
+   - Git 스타일 버전 관리
+   - Diff 생성 및 비교
+   - 버전 복원 기능
+   - 자동 백업
+
+3. **API 엔드포인트 추가** (app/api/endpoints/editor.py)
+   - POST /edit-slide
+   - GET /versions/{ppt_id}
+   - POST /restore-version
+
+4. **테스트 작성**
+   - 단위 테스트 (각 메서드)
+   - 통합 테스트 (전체 워크플로우)
+
+### ⚠️ 중요 사항
+- 모든 편집 작업은 **자동 검증** 후 적용
+- 편집 전 **자동 백업** 생성
+- McKinsey 표준 준수 여부 실시간 체크
+- 품질 점수 0.85 유지 필수
+
+### 🎨 디자인 원칙
+- 사용자 편의성 최우선
+- 직관적인 API 설계
+- 실패 시 명확한 에러 메시지
+- 항상 복구 가능한 상태 유지
+
+---
+
+## ✅ 완료 체크리스트
+
+- [ ] SmartEditor 기본 구조 생성
+- [ ] 헤드라인 편집 기능 구현
+- [ ] 불릿 포인트 편집 기능 구현
+- [ ] 차트 데이터 업데이트 기능 구현
+- [ ] 레이아웃 변경 기능 구현
+- [ ] VersionManager 기본 구조 생성
+- [ ] 버전 생성 & 저장 구현
+- [ ] Diff 알고리즘 구현
+- [ ] 버전 복원 기능 구현
+- [ ] 자동 백업 스케줄러 구현
+- [ ] API 엔드포인트 추가
+- [ ] 테스트 작성 (20개 이상)
+- [ ] 통합 테스트 통과
+- [ ] 문서화 완료
+
+---
+
+**이 지시서를 Claude Code에게 전달하고 작업을 시작하세요! 🚀**

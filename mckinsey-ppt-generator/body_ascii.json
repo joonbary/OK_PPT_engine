@@ -1,0 +1,7 @@
+{
+  "document": "This is a test document for generating a presentation. It contains various business insights and data points.",
+  "style": "mckinsey",
+  "target_audience": "executive",
+  "num_slides": 5,
+  "language": "en"
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McKinsey PPT Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0070C0 0%, #002E6C 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            margin: 20px;
+        }
+        
+        h1 {
+            color: #002E6C;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .status {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .status h3 {
+            color: #0070C0;
+            margin-bottom: 10px;
+        }
+        
+        .status-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-left: 4px solid #0070C0;
+        }
+        
+        .success {
+            border-left-color: #4caf50;
+        }
+        
+        .btn {
+            background: #0070C0;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        
+        .btn:hover {
+            background: #005090;
+        }
+        
+        .buttons {
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 McKinsey PPT Generator</h1>
+        
+        <div class="status">
+            <h3>시스템 상태</h3>
+            <div class="status-item success">✅ 백엔드 API 구축 완료</div>
+            <div class="status-item success">✅ 인증 시스템 구현 완료</div>
+            <div class="status-item success">✅ PPT 생성 엔진 구현 완료</div>
+            <div class="status-item success">✅ 프론트엔드 코드 생성 완료</div>
+        </div>
+        
+        <div class="status">
+            <h3>접속 정보</h3>
+            <div class="status-item">
+                <strong>백엔드 API:</strong> 
+                <a href="http://localhost:8000/docs" target="_blank">http://localhost:8000/docs</a>
+            </div>
+            <div class="status-item">
+                <strong>프론트엔드:</strong> React 앱 빌드 필요
+            </div>
+        </div>
+        
+        <div class="status">
+            <h3>테스트 계정</h3>
+            <div class="status-item">
+                <strong>Username:</strong> testuser<br>
+                <strong>Password:</strong> TestPass123
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn" onclick="testAPI()">API 테스트</button>
+            <button class="btn" onclick="location.href='http://localhost:8000/docs'">API 문서 보기</button>
+        </div>
+    </div>
+    
+    <script>
+        async function testAPI() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                alert('API 상태: ' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                alert('API 연결 실패: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

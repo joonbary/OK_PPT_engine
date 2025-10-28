@@ -1,0 +1,45 @@
+🎯 **즉시 실행: CORS 중복 설정 제거**
+
+【문제】
+- CORS 헤더가 2번 추가되어 브라우저에서 차단됨
+- Access-Control-Allow-Origin: *, * (중복)
+
+【해결 단계】
+
+1️⃣ 파일 확인
+   mckinsey-ppt-generator/app/main.py 열기
+
+2️⃣ CORS 설정 검색
+   `app.add_middleware(CORSMiddleware` 검색
+   - 2개 이상 발견되면 첫 번째만 남기고 삭제
+
+3️⃣ 올바른 코드로 교체
+```python
+   app = FastAPI(title="McKinsey PPT Generator API")
+   
+   # CORS 설정 (단 한 번만!)
+   app.add_middleware(
+       CORSMiddleware,
+       allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+       allow_credentials=True,
+       allow_methods=["*"],
+       allow_headers=["*"],
+   )
+```
+
+4️⃣ 서버 재시작
+   Ctrl+C 후 다시 실행
+
+【검증】
+- 브라우저 콘솔에서 CORS 에러 사라져야 함
+- http://localhost:8080 정상 접근
+```
+
+---
+
+## ✅ 해결 확인
+
+수정 후 브라우저 콘솔에서:
+```
+✅ 정상: GET http://localhost:8080/api/v1/health 200 OK
+❌ 이전: CORS policy error

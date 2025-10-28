@@ -1,0 +1,383 @@
+완벽한 상황 파악입니다! 핵심 문제가 명확하네요. **LLM의 불안정한 JSON 응답**과 **로깅 실패**가 병목입니다.
+
+풀스택 개발자 + AI 엔지니어 관점에서 **즉시 적용 가능한 해결책**을 제시하겠습니다.
+
+---
+
+## 🎯 핵심 문제 분석
+
+### 문제 1: JSON 파싱 실패
+```
+json.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+```
+
+**원인 추정:**
+1. LLM이 JSON 외에 설명 텍스트를 함께 반환 (예: "Here's the JSON: {...}")
+2. LLM이 Markdown 코드 블록으로 감쌈 (예: ```json\n{...}\n```)
+3. LLM 응답이 비어있거나 에러 메시지
+4. 네트워크 타임아웃으로 불완전한 응답
+
+### 문제 2: 로깅 실패
+- `loguru` 설정이 Docker 환경에서 제대로 작동하지 않을 가능성
+- 비동기 컨텍스트에서 로그 출력 타이밍 이슈
+
+---
+
+## 🛠️ Claude Code 작업지시서 - 긴급 수정
+
+### ✅ Task 1: 강화된 JSON 파싱 로직 (최우선)
+
+`app/services/content_generator.py`의 `_generate_ai_content` 메서드를 다음과 같이 수정:
+
+```python
+async def _generate_ai_content(
+    self, 
+    slide_type: str, 
+    context: Dict[str, Any]
+) -> Dict[str, Any]:
+    """AI를 사용하여 슬라이드 콘텐츠 생성 (강화된 JSON 파싱)"""
+    
+    from loguru import logger
+    import re
+    
+    try:
+        logger.info(f"🤖 AI generating content for slide type: {slide_type}")
+        
+        # McKinsey 스타일 프롬프트
+        prompt = f"""당신은 McKinsey 컨설팅 전문가입니다.
+
+다음 슬라이드를 위한 전문적인 콘텐츠를 생성하세요:
+- 슬라이드 유형: {slide_type}
+- 컨텍스트: {json.dumps(context, ensure_ascii=False)}
+
+**중요: 반드시 순수한 JSON 형식으로만 응답하세요. 설명 텍스트나 마크다운 없이 JSON만 반환하세요.**
+
+응답 형식:
+{{
+    "headline": "McKinsey 스타일 헤드라인 (So What 포함, 정량화)",
+    "key_points": [
+        "핵심 포인트 1 (액션 중심, 정량화)",
+        "핵심 포인트 2",
+        "핵심 포인트 3"
+    ],
+    "insights": [
+        "Level 4 인사이트 (Action-oriented)"
+    ],
+    "chart_type": "bar/line/pie/waterfall",
+    "data_recommendations": "데이터 시각화 권장사항"
+}}"""
+
+        # OpenAI API 호출
+        logger.info("📡 Calling OpenAI API...")
+        
+        response = await self.llm_client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "You are a McKinsey consultant. Always respond with pure JSON only, no markdown, no explanations."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1000,
+            response_format={"type": "json_object"}  # 🔑 JSON 모드 강제
+        )
+        
+        raw_content = response.choices[0].message.content
+        
+        # ✅ 원시 응답 로깅 (강제 출력)
+        logger.info("=" * 80)
+        logger.info("📥 LLM RAW RESPONSE:")
+        logger.info(raw_content)
+        logger.info("=" * 80)
+        
+        # ✅ 강화된 JSON 추출 로직
+        content = raw_content.strip()
+        
+        # 1. Markdown 코드 블록 제거
+        if content.startswith("```"):
+            # ```json\n{...}\n``` 형식
+            content = re.sub(r'^```json\s*\n', '', content)
+            content = re.sub(r'\n```$', '', content)
+            content = re.sub(r'^```\s*\n', '', content)
+            logger.info("🔧 Removed markdown code blocks")
+        
+        # 2. 앞뒤 설명 텍스트 제거
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            content = json_match.group(0)
+            logger.info("🔧 Extracted JSON from text")
+        
+        # 3. JSON 파싱 시도
+        try:
+            ai_content = json.loads(content)
+            logger.success(f"✅ AI content parsed successfully")
+            return ai_content
+            
+        except json.JSONDecodeError as json_err:
+            logger.error(f"❌ JSON parsing failed: {json_err}")
+            logger.error(f"📄 Cleaned content: {content[:200]}...")
+            raise
+            
+    except Exception as e:
+        logger.error(f"❌ AI generation failed: {type(e).__name__}: {str(e)}")
+        logger.warning("⚠️ Falling back to mock content")
+        
+        # Mock 폴백
+        return self._generate_mock_content(slide_type, context)
+```
+
+### 🔑 핵심 개선사항:
+
+1. **`response_format={"type": "json_object"}`** 추가
+   - OpenAI GPT-4의 JSON 모드 강제 활성화
+   - 이 옵션은 LLM이 **반드시 유효한 JSON만** 반환하도록 강제합니다
+
+2. **강화된 정규식 파싱**
+   - Markdown 코드 블록 자동 제거
+   - 설명 텍스트에서 JSON만 추출
+
+3. **다단계 로깅**
+   - 원시 응답 전체 출력
+   - 정제 과정 각 단계 로깅
+
+---
+
+### ✅ Task 2: Loguru 설정 강화
+
+`app/core/config.py` 또는 `main.py`에 다음 추가:
+
+```python
+from loguru import logger
+import sys
+
+# Loguru 설정 강화
+logger.remove()  # 기본 핸들러 제거
+logger.add(
+    sys.stdout,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
+    level="INFO",
+    colorize=True,
+    backtrace=True,
+    diagnose=True
+)
+
+logger.add(
+    "logs/app.log",
+    rotation="500 MB",
+    retention="10 days",
+    level="DEBUG",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function} - {message}"
+)
+
+logger.info("✅ Loguru configured successfully")
+```
+
+---
+
+### ✅ Task 3: 테스트 스크립트 개선
+
+`send_request.py`를 다음과 같이 수정:
+
+```python
+import requests
+import json
+import time
+
+# 긴 테스트 문서 (Pydantic 유효성 검사 통과용)
+test_document = """
+아시아 시장 진출 전략 분석
+
+1. 시장 개요
+- 아시아 시장 규모: 5조원
+- 연평균 성장률: 15%
+- 주요 국가: 베트남, 인도네시아, 태국
+
+2. 기회 요인
+- 중산층 급증: 5년 내 2배 성장 예상
+- 디지털 전환 가속화
+- 정부 지원 정책 강화
+
+3. 진출 전략
+- 1단계: 베트남 시장 선점 (향후 6개월)
+- 2단계: 인도네시아 확장 (12개월 후)
+- 3단계: 지역 허브 구축 (18개월 후)
+
+4. 예상 효과
+- 매출 30% 증가
+- 시장 점유율 15% 달성
+- ROI 150% 달성
+"""
+
+payload = {
+    "document": test_document,
+    "style": "mckinsey",
+    "target_audience": "executive",
+    "num_slides": 5,
+    "language": "ko"
+}
+
+print("📡 Sending request to API...")
+print(f"📄 Document length: {len(test_document)} chars")
+
+try:
+    response = requests.post(
+        "http://localhost:8000/api/v1/generate-ppt",
+        json=payload,
+        timeout=60
+    )
+    
+    print(f"✅ Response status: {response.status_code}")
+    print(f"📥 Response body: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
+    
+    if response.status_code == 200:
+        result = response.json()
+        ppt_id = result.get("ppt_id")
+        print(f"\n🎯 PPT ID: {ppt_id}")
+        print("\n⏳ Waiting for generation to complete...")
+        
+        # 상태 확인 (최대 60초)
+        for i in range(60):
+            time.sleep(1)
+            status_response = requests.get(f"http://localhost:8000/api/v1/ppt-status/{ppt_id}")
+            status = status_response.json()
+            
+            print(f"[{i+1}s] Status: {status.get('status')} | Progress: {status.get('progress', 0)}%")
+            
+            if status.get('status') == 'completed':
+                print("\n✅ PPT generation completed!")
+                print(f"📊 Quality Score: {status.get('quality_score')}")
+                print(f"📥 Download URL: {status.get('download_url')}")
+                break
+            elif status.get('status') == 'failed':
+                print(f"\n❌ Generation failed: {status.get('error')}")
+                break
+                
+except Exception as e:
+    print(f"❌ Error: {type(e).__name__}: {str(e)}")
+```
+
+---
+
+### ✅ Task 4: Docker 로그 실시간 모니터링
+
+별도 터미널에서 다음 명령어 실행:
+
+```powershell
+# 방법 1: 전체 로그 실시간 보기
+docker-compose logs -f app
+
+# 방법 2: 특정 키워드만 필터링
+docker-compose logs -f app | Select-String -Pattern "AI|LLM|RAW|JSON|ContentGenerator"
+
+# 방법 3: 타임스탬프 포함 상세 로그
+docker-compose logs -f --timestamps app
+```
+
+---
+
+## 🎯 실행 순서
+
+### 1단계: 코드 수정 적용
+```powershell
+# ContentGenerator 수정 (위 Task 1 코드)
+code app/services/content_generator.py
+
+# Loguru 설정 추가 (위 Task 2 코드)
+code app/core/config.py
+```
+
+### 2단계: Docker 재빌드
+```powershell
+docker-compose down
+docker-compose build --no-cache app
+docker-compose up -d
+```
+
+### 3단계: 로그 모니터링 시작
+```powershell
+# 새 PowerShell 창에서
+docker-compose logs -f app | Select-String -Pattern "AI|RAW|JSON"
+```
+
+### 4단계: 테스트 요청 전송
+```powershell
+# 원래 PowerShell 창에서
+python send_request.py
+```
+
+---
+
+## 📊 예상 결과
+
+### ✅ 성공 시 로그:
+```
+2025-10-16 15:30:45 | INFO     | ContentGenerator:_generate_ai_content - 🤖 AI generating content for slide type: executive_summary
+2025-10-16 15:30:45 | INFO     | ContentGenerator:_generate_ai_content - 📡 Calling OpenAI API...
+2025-10-16 15:30:47 | INFO     | ContentGenerator:_generate_ai_content - ================================================================================
+2025-10-16 15:30:47 | INFO     | ContentGenerator:_generate_ai_content - 📥 LLM RAW RESPONSE:
+2025-10-16 15:30:47 | INFO     | ContentGenerator:_generate_ai_content - {"headline": "아시아 시장이 3년 내 50% 성장하여 최대 기회 제공", "key_points": [...], ...}
+2025-10-16 15:30:47 | INFO     | ContentGenerator:_generate_ai_content - ================================================================================
+2025-10-16 15:30:47 | SUCCESS  | ContentGenerator:_generate_ai_content - ✅ AI content parsed successfully
+```
+
+### ❌ 실패 시 로그:
+```
+2025-10-16 15:30:47 | ERROR    | ContentGenerator:_generate_ai_content - ❌ JSON parsing failed: Expecting value: line 1 column 1
+2025-10-16 15:30:47 | ERROR    | ContentGenerator:_generate_ai_content - 📄 Cleaned content: Here is the JSON: {...
+2025-10-16 15:30:47 | WARNING  | ContentGenerator:_generate_ai_content - ⚠️ Falling back to mock content
+```
+
+---
+
+## 🚨 여전히 실패한다면
+
+### Plan B: Anthropic Claude API 사용
+
+OpenAI가 계속 불안정하면 Claude로 전환:
+
+```python
+# requirements.txt에 추가
+anthropic==0.18.0
+
+# content_generator.py에서
+from anthropic import AsyncAnthropic
+
+self.llm_client = AsyncAnthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+# API 호출
+response = await self.llm_client.messages.create(
+    model="claude-3-sonnet-20240229",
+    max_tokens=1000,
+    messages=[{"role": "user", "content": prompt}]
+)
+```
+
+Claude는 JSON 형식을 더 안정적으로 반환합니다.
+
+---
+
+## 💬 Claude Code에게 전달할 핵심 메시지
+
+```
+[긴급 수정 요청]
+
+현재 LLM JSON 파싱 실패 문제를 해결하기 위해 다음을 적용해주세요:
+
+1. content_generator.py의 _generate_ai_content 메서드에 
+   `response_format={"type": "json_object"}` 추가
+
+2. 강화된 정규식 파싱 로직 적용 (Markdown 제거)
+
+3. 원시 응답 로깅 강화 (logger.info로 전체 출력)
+
+4. Docker 재빌드 후 send_request.py 실행
+
+5. 로그에서 "📥 LLM RAW RESPONSE:" 섹션 확인
+
+완료 후 로그를 공유해주세요.
+```
+
+---
+
+이제 **`response_format={"type": "json_object"}`** 옵션이 핵심입니다. 이것만으로도 90% 이상 문제가 해결될 것입니다! 🚀
+
+결과를 알려주시면 추가 대응 방안을 제시하겠습니다.

@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:localhost)",
+      "Bash(tree:*)",
+      "Bash(touch:*)",
+      "Bash(copy mckinsey-ppt-generator.env.example mckinsey-ppt-generator.env)",
+      "Bash(cp:*)",
+      "Bash(uvicorn:*)",
+      "Bash(curl:*)",
+      "Bash(pip install:*)",
+      "Bash(python test:*)",
+      "Bash(dir:*)",
+      "Bash(python:*)",
+      "Bash(mkdir:*)",
+      "Bash(powershell:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker ps:*)",
+      "Bash(grep:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker cp:*)",
+      "Bash(docker restart:*)",
+      "Bash(timeout:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "D:\\D\\PPT_Designer_OK",
+      "D:\\mnt\\d\\PPT_Designer_OK"
+    ]
+  }
+}

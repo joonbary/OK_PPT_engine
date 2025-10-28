@@ -1,0 +1,218 @@
+🔧 Phase 1: 긴급 버그 수정 (Critical Fixes)
+Task 1.1: 언어 처리 시스템 수정
+우선순위: 🔴 P0 (최우선)
+문제 진단
+
+한글 문서 입력 시 영어 제목 생성됨
+언어 컨텍스트가 LLM 프롬프트에 전달되지 않음
+
+작업 내용
+1단계: app/services/content_generator.py 수정
+python# 현재 문제 (추정)
+class ContentGenerator:
+    async def generate_slide_content(self, slide_outline, context):
+        # 언어 정보가 프롬프트에 포함되지 않음
+        prompt = f"Generate content for {slide_outline['type']}"
+        # ❌ 언어 지시 없음
+
+# 수정 필요
+class ContentGenerator:
+    def __init__(self, language: str = "ko"):
+        self.language = language  # ✅ 언어 설정 저장
+        
+    async def generate_slide_content(self, slide_outline, context):
+        # ✅ 언어별 프롬프트 템플릿
+        language_instructions = {
+            "ko": "모든 내용을 한국어로 작성하세요. 제목, 본문, 불릿 포인트 모두 한국어를 사용하세요.",
+            "en": "Write all content in English.",
+            "ja": "すべての内容を日本語で書いてください。"
+        }
+        
+        prompt = f"""
+        {language_instructions[self.language]}
+        
+        슬라이드 유형: {slide_outline['type']}
+        제목 언어: {self.language}
+        본문 언어: {self.language}
+        
+        {slide_outline['content']}
+        """
+2단계: 모든 Agent에 언어 파라미터 전달
+python# app/services/workflow_orchestrator.py 수정
+class WorkflowOrchestrator:
+    def __init__(self, language: str = "ko"):
+        self.language = language
+        self.agents = {
+            "strategist": StrategistAgent(language=language),
+            "analyst": DataAnalystAgent(language=language),
+            "storyteller": StorytellerAgent(language=language)
+        }
+검증 방법
+python# tests/test_language_handling.py
+def test_korean_title_generation():
+    generator = ContentGenerator(language="ko")
+    result = generator.generate_slide_content({
+        "type": "title",
+        "topic": "AI의 기업 영향"
+    })
+    assert is_korean(result["title"])
+    assert "AI" in result["title"]  # 영문 약어는 허용
+    assert not result["title"].startswith("AI's")  # 영어 문장 불가
+
+Task 1.2: 불릿 포인트 인코딩 수정
+우선순위: 🔴 P0
+문제 진단
+
+"??" 기호는 UTF-8 인코딩 깨짐 현상
+python-pptx에서 특수문자 처리 오류
+
+작업 내용
+1단계: 템플릿 파일의 불릿 문자 확인
+python# app/templates/base_template.py 확인
+class BaseTemplate:
+    def _define_style(self):
+        return {
+            "bullet_char": "•",  # ✅ 유니코드 문자 사용
+            # ❌ "\u2022" 같은 이스케이프 시퀀스 확인
+        }
+2단계: design_applicator.py에서 불릿 포인트 적용 로직 수정
+python# app/services/design_applicator.py
+class DesignApplicator:
+    def _apply_bullet_points(self, text_frame, bullet_points):
+        for idx, point in enumerate(bullet_points):
+            paragraph = text_frame.paragraphs[idx] if idx < len(text_frame.paragraphs) else text_frame.add_paragraph()
+            
+            # ✅ 명시적 인코딩 처리
+            paragraph.text = str(point).encode('utf-8').decode('utf-8')
+            paragraph.level = 0
+            
+            # ✅ 불릿 문자 설정
+            paragraph.font.name = 'Arial'  # 불릿 지원 폰트
+            paragraph.line_spacing = 1.15
+3단계: PPTX 저장 시 인코딩 명시
+python# app/services/ppt_generator.py
+class PPTGenerator:
+    def save(self, filename):
+        # ✅ UTF-8 BOM 없이 저장
+        self.presentation.save(filename)
+검증 방법
+python# tests/test_bullet_encoding.py
+def test_bullet_point_rendering():
+    generator = PPTGenerator()
+    generator.add_bullet_points(["첫 번째 항목", "두 번째 항목"])
+    generator.save("test.pptx")
+    
+    # PowerPoint에서 열어서 수동 확인
+    # 자동 검증: pptx 파일 파싱 후 텍스트 추출
+    from pptx import Presentation
+    prs = Presentation("test.pptx")
+    text = prs.slides[0].shapes[0].text
+    assert "??" not in text
+    assert "•" in text or "-" in text
+
+Task 1.3: 음슴체 변환 시스템 구축
+우선순위: 🟡 P1
+작업 내용
+새 파일 생성: app/utils/text_formatter.py
+python"""
+한국어 텍스트를 비즈니스 음슴체로 변환하는 유틸리티
+"""
+
+import re
+from typing import List
+
+class EumsumStyleConverter:
+    """
+    McKinsey 스타일 음슴체 변환기
+    서술체 → 음슴체 변환
+    
+    예시:
+    "AI는 기업을 재구성한다" → "AI는 기업을 재구성"
+    "시장이 성장하고 있다" → "시장이 성장 중"
+    """
+    
+    # 변환 규칙
+    CONVERSION_RULES = [
+        (r'(.+)한다$', r'\1'),           # ~한다 → ~
+        (r'(.+)된다$', r'\1됨'),         # ~된다 → ~됨
+        (r'(.+)이다$', r'\1'),           # ~이다 → ~
+        (r'(.+)있다$', r'\1있음'),       # ~있다 → ~있음
+        (r'(.+)없다$', r'\1없음'),       # ~없다 → ~없음
+        (r'(.+)하고 있다$', r'\1 중'),   # ~하고 있다 → ~ 중
+        (r'(.+)하였다$', r'\1함'),       # ~하였다 → ~함
+        (r'(.+)했다$', r'\1함'),         # ~했다 → ~함
+        (r'(.+)할 것이다$', r'\1 예정'), # ~할 것이다 → ~ 예정
+    ]
+    
+    @classmethod
+    def convert(cls, text: str) -> str:
+        """단일 문장 변환"""
+        for pattern, replacement in cls.CONVERSION_RULES:
+            text = re.sub(pattern, replacement, text)
+        return text
+    
+    @classmethod
+    def convert_bullet_points(cls, points: List[str]) -> List[str]:
+        """불릿 포인트 리스트 일괄 변환"""
+        return [cls.convert(point) for point in points]
+    
+    @classmethod
+    def convert_headline(cls, headline: str) -> str:
+        """
+        헤드라인 특별 처리
+        - 액션 동사는 유지
+        - 끝 어미만 변환
+        """
+        # "~를 실현한다" → "~를 실현"
+        # "~가 성장한다" → "~가 성장"
+        return cls.convert(headline)
+
+
+# 사용 예시
+if __name__ == "__main__":
+    converter = EumsumStyleConverter()
+    
+    # 테스트
+    examples = [
+        "AI는 기업의 운영 모델을 근본적으로 재구성한다",
+        "전통적인 피라미드 구조가 변화하고 있다",
+        "새로운 전달 모델로 진화할 것이다"
+    ]
+    
+    for ex in examples:
+        print(f"원본: {ex}")
+        print(f"변환: {converter.convert(ex)}")
+        print()
+2단계: ContentGenerator에 통합
+python# app/services/content_generator.py
+from app.utils.text_formatter import EumsumStyleConverter
+
+class ContentGenerator:
+    def __init__(self, language="ko"):
+        self.language = language
+        self.formatter = EumsumStyleConverter()
+    
+    async def generate_slide_content(self, slide_outline, context):
+        # LLM으로 콘텐츠 생성
+        raw_content = await self.llm_client.generate(prompt)
+        
+        # ✅ 음슴체 변환 (한국어만)
+        if self.language == "ko":
+            if "headline" in raw_content:
+                raw_content["headline"] = self.formatter.convert_headline(
+                    raw_content["headline"]
+                )
+            if "bullet_points" in raw_content:
+                raw_content["bullet_points"] = self.formatter.convert_bullet_points(
+                    raw_content["bullet_points"]
+                )
+        
+        return raw_content
+검증 방법
+python# tests/test_eumsum_converter.py
+def test_eumsum_conversion():
+    converter = EumsumStyleConverter()
+    
+    assert converter.convert("AI는 기업을 재구성한다") == "AI는 기업을 재구성"
+    assert converter.convert("시장이 성장하고 있다") == "시장이 성장 중"
+    assert converter.convert("투자할 것이다") == "투자 예정"

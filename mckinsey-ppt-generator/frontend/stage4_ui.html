@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 4: 디자인 적용</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .stage-container {
+            background-color: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            padding: 24px;
+            width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stage-header {
+            font-size: 20px;
+            font-weight: 600;
+            border-bottom: 1px solid #d9d9d9;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .process-list, .validation-result {
+            background-color: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .process-list ul, .validation-result ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .process-list li, .validation-result li {
+            margin-bottom: 8px;
+        }
+        .thumbnail-preview {
+            margin-bottom: 16px;
+        }
+        .thumbnail-preview h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .thumbnail-container {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px;
+            background-color: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+        }
+        .thumbnail {
+            width: 100px;
+            height: 75px;
+            background-color: #d9d9d9;
+            border: 1px solid #bfbfbf;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            color: #595959;
+            flex-shrink: 0;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-buttons .next-btn {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .action-buttons .next-btn:disabled {
+            background-color: #a0d9ff;
+            border-color: #a0d9ff;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="stage-container">
+    <div class="stage-header">Stage 4: 디자인 적용</div>
+
+    <div class="process-list">
+        <ul id="process-steps">
+            <li>🎨 McKinsey 스타일 적용 중...</li>
+            <!-- Steps will be populated by JS -->
+        </ul>
+    </div>
+
+    <div class="thumbnail-preview">
+        <h3>📊 디자인 미리보기:</h3>
+        <div class="thumbnail-container" id="thumbnail-container">
+            <!-- Thumbnails will be populated by JS -->
+        </div>
+    </div>
+
+    <div class="validation-result">
+        <h3>🔍 검증 결과:</h3>
+        <ul id="validation-list">
+            <li>결과 대기 중...</li>
+        </ul>
+    </div>
+
+    <div class="action-buttons">
+        <button id="prev-stage-btn" class="prev-btn">← 이전 단계</button>
+        <div>
+            <button id="regenerate-btn">🔄 재생성</button>
+            <button id="next-stage-btn" class="next-btn" disabled>→ 다음 단계</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const processSteps = [
+            { text: '템플릿 적용', duration: 1000 },
+            { text: '폰트/색상 표준화', duration: 1500 },
+            { text: '차트 생성', duration: 2000 },
+            { text: '디자인 요소 검증', duration: 1000 }
+        ];
+
+        const validationResults = [
+            '• 텍스트 오버플로우: 0건',
+            '• 요소 겹침: 1건 → 자동 수정 완료',
+            '• 가독성: 100% 통과'
+        ];
+
+        const processListElement = document.getElementById('process-steps');
+        const validationListElement = document.getElementById('validation-list');
+        const thumbnailContainer = document.getElementById('thumbnail-container');
+        const nextBtn = document.getElementById('next-stage-btn');
+
+        let currentStep = 0;
+
+        function runProcess() {
+            if (currentStep < processSteps.length) {
+                const step = processSteps[currentStep];
+                const li = processListElement.children[currentStep];
+                if (!li) {
+                    const newLi = document.createElement('li');
+                    processListElement.appendChild(newLi);
+                    li = newLi;
+                }
+                
+                if(currentStep > 0) {
+                    processListElement.children[currentStep-1].textContent = `✅ ${processSteps[currentStep-1].text} 완료`;
+                }
+                processListElement.children[currentStep].textContent = `🔄 ${step.text} 중...`;
+
+                setTimeout(() => {
+                    currentStep++;
+                    runProcess();
+                }, step.duration);
+            } else {
+                processListElement.children[currentStep-1].textContent = `✅ ${processSteps[currentStep-1].text} 완료`;
+                displayResults();
+            }
+        }
+        
+        function displayResults() {
+            // Populate thumbnails
+            for (let i = 1; i <= 15; i++) {
+                const thumb = document.createElement('div');
+                thumb.className = 'thumbnail';
+                thumb.textContent = `Slide ${i}`;
+                thumbnailContainer.appendChild(thumb);
+            }
+
+            // Populate validation results
+            validationListElement.innerHTML = '';
+            validationResults.forEach(result => {
+                const li = document.createElement('li');
+                li.textContent = result;
+                validationListElement.appendChild(li);
+            });
+
+            nextBtn.disabled = false;
+        }
+        
+        // Initial setup
+        processListElement.innerHTML = '';
+        processSteps.forEach(step => {
+            const li = document.createElement('li');
+            li.textContent = `⏳ ${step.text} 대기 중...`;
+            processListElement.appendChild(li);
+        });
+
+        document.getElementById('prev-stage-btn').addEventListener('click', () => {
+            window.location.href = 'stage3_ui.html';
+        });
+
+        document.getElementById('regenerate-btn').addEventListener('click', () => {
+            alert('디자인을 다시 생성합니다.');
+            window.location.reload();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            alert('다음 단계로 진행합니다.');
+        });
+
+        // Start the simulation
+        setTimeout(runProcess, 500);
+    });
+</script>
+
+</body>
+</html>

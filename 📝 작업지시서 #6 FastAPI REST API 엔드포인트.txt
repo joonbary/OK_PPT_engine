@@ -1,0 +1,311 @@
+📝 작업지시서 #6: FastAPI REST API 엔드포인트 구현
+🎯 목표
+현재 Python 스크립트로만 동작하는 시스템을 실제 서비스로 사용 가능하도록 REST API 엔드포인트 구현
+📊 예상 작업 시간
+
+소요 시간: 3-4시간
+난이도: 중간
+
+🛠️ 구현할 API 엔드포인트
+1. POST /api/v1/generate-ppt - PPT 생성 시작
+pythonRequest Body:
+{
+  "document": "비즈니스 문서 내용...",
+  "style": "mckinsey",
+  "target_audience": "executive",
+  "num_slides": 12,
+  "language": "ko"
+}
+
+Response:
+{
+  "ppt_id": "uuid-123-456",
+  "status": "processing",
+  "estimated_time": 5,
+  "created_at": "2025-01-02T10:00:00Z"
+}
+2. GET /api/v1/ppt-status/{ppt_id} - 생성 상태 조회
+pythonResponse:
+{
+  "ppt_id": "uuid-123-456",
+  "status": "completed",  // processing, completed, failed
+  "progress": 100,
+  "current_stage": "quality_review",
+  "quality_score": 0.873,
+  "download_url": "/api/v1/download/uuid-123-456",
+  "created_at": "2025-01-02T10:00:00Z",
+  "completed_at": "2025-01-02T10:00:05Z"
+}
+3. GET /api/v1/download/{ppt_id} - PPT 파일 다운로드
+pythonResponse: 
+- Content-Type: application/vnd.openxmlformats-officedocument.presentationml.presentation
+- 실제 PPTX 파일 스트리밍
+4. DELETE /api/v1/ppt/{ppt_id} - 생성된 PPT 삭제
+pythonResponse:
+{
+  "success": true,
+  "message": "PPT 파일이 삭제되었습니다."
+}
+5. GET /api/v1/health - 헬스 체크
+pythonResponse:
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "redis": "connected",
+  "llm_api": "available"
+}
+
+📁 생성/수정할 파일 목록
+1. app/api/v1/endpoints/ppt.py (신규 - 약 200줄)
+python"""PPT 생성 API 엔드포인트"""
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from app.models.schemas import PPTRequest, PPTResponse, StatusResponse
+from app.services.ppt_service import PPTService
+from app.core.dependencies import get_redis_client
+
+router = APIRouter()
+
+@router.post("/generate-ppt", response_model=PPTResponse)
+async def generate_ppt(
+    request: PPTRequest,
+    background_tasks: BackgroundTasks
+):
+    """PPT 생성 요청"""
+    # 1. 요청 검증
+    # 2. ppt_id 생성
+    # 3. 백그라운드 작업 시작
+    # 4. 초기 응답 반환
+    pass
+
+@router.get("/ppt-status/{ppt_id}", response_model=StatusResponse)
+async def get_ppt_status(ppt_id: str):
+    """PPT 생성 상태 조회"""
+    # Redis에서 상태 조회
+    pass
+
+@router.get("/download/{ppt_id}")
+async def download_ppt(ppt_id: str):
+    """PPT 파일 다운로드"""
+    # FileResponse로 PPTX 반환
+    pass
+2. app/models/schemas.py (신규 - 약 100줄)
+python"""Pydantic 스키마 정의"""
+from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import datetime
+
+class PPTRequest(BaseModel):
+    document: str = Field(..., min_length=100, description="비즈니스 문서 내용")
+    style: str = Field(default="mckinsey", description="PPT 스타일")
+    target_audience: str = Field(default="executive", description="타겟 청중")
+    num_slides: int = Field(default=12, ge=5, le=30, description="슬라이드 수")
+    language: str = Field(default="ko", description="언어")
+
+class PPTResponse(BaseModel):
+    ppt_id: str
+    status: str
+    estimated_time: int
+    created_at: datetime
+    
+class StatusResponse(BaseModel):
+    ppt_id: str
+    status: str
+    progress: int
+    current_stage: Optional[str]
+    quality_score: Optional[float]
+    download_url: Optional[str]
+    created_at: datetime
+    completed_at: Optional[datetime]
+3. app/services/ppt_service.py (신규 - 약 150줄)
+python"""PPT 생성 비즈니스 로직"""
+import uuid
+from datetime import datetime
+from app.services.workflow_orchestrator import WorkflowOrchestrator
+from app.core.redis_client import RedisClient
+
+class PPTService:
+    def __init__(self):
+        self.redis = RedisClient()
+        self.orchestrator = WorkflowOrchestrator()
+    
+    def create_ppt_id(self) -> str:
+        """고유 PPT ID 생성"""
+        return str(uuid.uuid4())
+    
+    async def start_generation(self, ppt_id: str, request: dict):
+        """백그라운드 PPT 생성 시작"""
+        try:
+            # 1. 상태를 processing으로 설정
+            await self.update_status(ppt_id, "processing", 0, "document_analysis")
+            
+            # 2. WorkflowOrchestrator 실행
+            result = await self.orchestrator.generate_presentation(
+                document_text=request["document"],
+                target_audience=request["target_audience"]
+            )
+            
+            # 3. 파일 저장
+            file_path = await self.save_pptx(ppt_id, result["pptx_file"])
+            
+            # 4. 상태 업데이트
+            await self.update_status(
+                ppt_id, "completed", 100, 
+                quality_score=result["quality_score"],
+                file_path=file_path
+            )
+            
+        except Exception as e:
+            await self.update_status(ppt_id, "failed", 0, error=str(e))
+    
+    async def get_status(self, ppt_id: str) -> dict:
+        """PPT 생성 상태 조회"""
+        # Redis에서 상태 가져오기
+        pass
+    
+    async def get_file_path(self, ppt_id: str) -> str:
+        """PPT 파일 경로 조회"""
+        # Redis에서 파일 경로 가져오기
+        pass
+4. app/core/redis_client.py (신규 - 약 80줄)
+python"""Redis 클라이언트"""
+import redis
+import json
+from typing import Optional
+
+class RedisClient:
+    def __init__(self):
+        self.redis = redis.Redis(
+            host='redis',
+            port=6379,
+            decode_responses=True
+        )
+    
+    async def set_ppt_status(self, ppt_id: str, data: dict, ttl: int = 86400):
+        """PPT 상태 저장 (TTL 24시간)"""
+        self.redis.setex(
+            f"ppt:{ppt_id}",
+            ttl,
+            json.dumps(data)
+        )
+    
+    async def get_ppt_status(self, ppt_id: str) -> Optional[dict]:
+        """PPT 상태 조회"""
+        data = self.redis.get(f"ppt:{ppt_id}")
+        return json.loads(data) if data else None
+5. app/main.py (수정 - 약 50줄 추가)
+python"""FastAPI 애플리케이션 메인"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1.endpoints import ppt
+
+app = FastAPI(
+    title="McKinsey PPT Generator API",
+    version="1.0.0",
+    description="McKinsey 수준 PPT 자동 생성 시스템"
+)
+
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# API 라우터 등록
+app.include_router(
+    ppt.router,
+    prefix="/api/v1",
+    tags=["ppt"]
+)
+
+@app.get("/")
+async def root():
+    return {
+        "message": "McKinsey PPT Generator API",
+        "version": "1.0.0",
+        "docs_url": "/docs"
+    }
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "version": "1.0.0"
+    }
+
+✅ 검증 기준
+1. API 동작 확인
+bash# 헬스 체크
+curl http://localhost:8000/health
+
+# PPT 생성 요청
+curl -X POST http://localhost:8000/api/v1/generate-ppt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document": "2024년 매출이 1000억원으로 전년 대비 20% 증가했습니다...",
+    "num_slides": 12
+  }'
+
+# 상태 조회
+curl http://localhost:8000/api/v1/ppt-status/{ppt_id}
+
+# 파일 다운로드
+curl http://localhost:8000/api/v1/download/{ppt_id} -o output.pptx
+```
+
+#### 2. **Swagger UI 확인**
+- http://localhost:8000/docs 접속
+- 모든 엔드포인트 테스트 가능
+
+#### 3. **성능 검증**
+- 동시 요청 10개 처리 가능
+- 응답 시간 < 200ms (상태 조회)
+- 백그라운드 작업 정상 동작
+
+---
+
+### 🎯 성공 지표
+
+- [ ] 5개 API 엔드포인트 모두 정상 동작
+- [ ] Swagger UI에서 테스트 성공
+- [ ] Redis 상태 관리 정상 동작
+- [ ] PPT 파일 다운로드 성공
+- [ ] 에러 처리 및 검증 완료
+
+---
+
+## 💬 Claude Code에게 전달할 메시지
+```
+안녕! 나는 지금 McKinsey 수준 PPT 자동 생성 시스템을 개발하고 있어.
+
+📊 현재 상태:
+- 프로젝트 경로: D:\PPT_Designer_OK\mckinsey-ppt-generator
+- 핵심 기능: 이미 완성됨 (품질 0.873, 생성 3초)
+- 현재 문제: Python 스크립트로만 실행 가능
+
+🎯 이번 작업 목표:
+실제 서비스로 사용할 수 있도록 **FastAPI REST API 엔드포인트 구현**
+
+📝 구현할 내용:
+1. POST /api/v1/generate-ppt - PPT 생성 시작
+2. GET /api/v1/ppt-status/{ppt_id} - 상태 조회
+3. GET /api/v1/download/{ppt_id} - 파일 다운로드
+4. DELETE /api/v1/ppt/{ppt_id} - 파일 삭제
+5. GET /api/v1/health - 헬스 체크
+
+📁 생성할 파일:
+- app/api/v1/endpoints/ppt.py (200줄)
+- app/models/schemas.py (100줄)
+- app/services/ppt_service.py (150줄)
+- app/core/redis_client.py (80줄)
+- app/main.py 수정 (50줄 추가)
+
+✅ 검증 방법:
+- http://localhost:8000/docs 에서 Swagger UI 확인
+- curl 명령어로 API 테스트
+- 실제 PPT 파일 다운로드 성공
+
+위 내용을 참고해서 FastAPI REST API를 구현해줘!
+기존 WorkflowOrchestrator는 그대로 사용하고, API 레이어만 추가하면 돼.

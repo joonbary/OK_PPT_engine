@@ -1,0 +1,1408 @@
+📝 작업지시서 #7: 웹 UI 프론트엔드 구축
+🎯 목표
+McKinsey 브랜드 스타일의 전문적이고 직관적인 웹 인터페이스 구축
+
+비개발자도 쉽게 사용 가능
+문서 입력 → PPT 생성 → 다운로드의 심플한 플로우
+실시간 진행 상황 시각화
+
+
+🎨 디자인 컨셉
+McKinsey 브랜드 스타일
+css/* 핵심 컬러 팔레트 */
+Primary:   #0076A8  (McKinsey Blue)
+Secondary: #F47621  (Emphasis Orange)
+Text:      #53565A  (Neutral Gray)
+Success:   #6BA644  (Green)
+Background: #F8F9FA (Light Gray)
+
+/* 타이포그래피 */
+Font Family: 'Roboto', 'Arial', sans-serif
+Title: 24-32px, Bold
+Body: 16px, Regular
+Caption: 14px, Light
+```
+
+### UI 구성 요소
+1. **헤더**: 로고 + 타이틀
+2. **메인 영역**: 3단계 프로세스
+   - Step 1: 문서 입력
+   - Step 2: 옵션 설정
+   - Step 3: 생성 진행 상황
+3. **푸터**: 버전 정보
+
+---
+
+## 📁 파일 구조
+```
+mckinsey-ppt-generator/
+├── frontend/
+│   ├── index.html              # 메인 페이지 (약 150줄)
+│   ├── css/
+│   │   └── style.css           # 커스텀 스타일 (약 300줄)
+│   ├── js/
+│   │   ├── app.js              # 메인 로직 (약 400줄)
+│   │   └── api.js              # API 통신 (약 150줄)
+│   └── images/
+│       └── logo.png            # McKinsey 스타일 로고 (선택)
+│
+├── docker-compose.yml          # 수정 (nginx 추가)
+└── nginx.conf                  # nginx 설정 (약 50줄)
+
+🛠️ 구현 상세
+1. frontend/index.html (약 150줄)
+html<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McKinsey PPT Generator</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="logo">
+                        <i class="fas fa-file-powerpoint"></i>
+                        McKinsey PPT Generator
+                    </h1>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="version">v1.0.0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            
+            <!-- Progress Steps -->
+            <div class="progress-steps mb-5">
+                <div class="step active" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">문서 입력</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">옵션 설정</div>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">생성 완료</div>
+                </div>
+            </div>
+
+            <!-- Step 1: 문서 입력 -->
+            <div class="step-content active" id="step-1">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h3><i class="fas fa-file-alt"></i> 비즈니스 문서 입력</h3>
+                        <p class="text-muted">분석할 비즈니스 문서 내용을 입력하세요</p>
+                    </div>
+                    <div class="card-body">
+                        <textarea 
+                            id="documentInput" 
+                            class="form-control document-input" 
+                            rows="15"
+                            placeholder="예시:
+
+2024년 우리 회사의 매출은 1,000억원으로 전년 대비 20% 증가했습니다.
+이는 신제품 라인의 성공적인 출시와 해외 시장 확장 덕분입니다.
+
+주요 성과:
+- 아시아 시장 진출로 해외 매출 300억원 달성
+- 신제품이 전체 매출의 40% 기여
+- 운영 효율화로 비용 15% 절감
+
+향후 계획:
+- 2025년 매출 목표 1,500억원 (50% 성장)
+- 유럽 시장 진출 예정
+- R&D 투자 2배 확대
+...
+
+(최소 100자 이상 입력하세요)"
+                        ></textarea>
+                        <div class="char-counter text-end mt-2">
+                            <span id="charCount">0</span> / 최소 100자
+                        </div>
+                    </div>
+                    <div class="card-footer text-end">
+                        <button 
+                            id="nextToOptions" 
+                            class="btn btn-primary btn-lg"
+                            disabled
+                        >
+                            다음 단계 <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: 옵션 설정 -->
+            <div class="step-content" id="step-2">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h3><i class="fas fa-cog"></i> PPT 생성 옵션</h3>
+                        <p class="text-muted">원하는 스타일과 설정을 선택하세요</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <!-- 스타일 선택 -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-palette"></i> 프레젠테이션 스타일
+                                </label>
+                                <select id="styleSelect" class="form-select">
+                                    <option value="mckinsey" selected>McKinsey 스타일 (권장)</option>
+                                    <option value="bcg">BCG 스타일</option>
+                                    <option value="bain">Bain 스타일</option>
+                                </select>
+                            </div>
+
+                            <!-- 타겟 청중 -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-users"></i> 타겟 청중
+                                </label>
+                                <select id="audienceSelect" class="form-select">
+                                    <option value="executive" selected>경영진 (Executive)</option>
+                                    <option value="management">중간 관리자</option>
+                                    <option value="technical">기술팀</option>
+                                    <option value="general">일반 청중</option>
+                                </select>
+                            </div>
+
+                            <!-- 슬라이드 수 -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-file-powerpoint"></i> 슬라이드 수
+                                </label>
+                                <input 
+                                    type="range" 
+                                    id="numSlidesRange" 
+                                    class="form-range" 
+                                    min="5" 
+                                    max="30" 
+                                    value="12"
+                                >
+                                <div class="text-center mt-2">
+                                    <span id="numSlidesValue" class="badge bg-primary">12</span> 장
+                                </div>
+                            </div>
+
+                            <!-- 언어 -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">
+                                    <i class="fas fa-language"></i> 언어
+                                </label>
+                                <select id="languageSelect" class="form-select">
+                                    <option value="ko" selected>한국어</option>
+                                    <option value="en">English</option>
+                                    <option value="ja">日本語</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 예상 소요 시간 -->
+                        <div class="alert alert-info mt-4">
+                            <i class="fas fa-clock"></i>
+                            <strong>예상 소요 시간:</strong> 약 3-5초
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between">
+                        <button id="backToDocument" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-arrow-left"></i> 이전
+                        </button>
+                        <button id="generatePPT" class="btn btn-primary btn-lg">
+                            <i class="fas fa-magic"></i> PPT 생성하기
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: 생성 진행 상황 -->
+            <div class="step-content" id="step-3">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h3><i class="fas fa-spinner fa-spin"></i> PPT 생성 중...</h3>
+                        <p class="text-muted">잠시만 기다려주세요</p>
+                    </div>
+                    <div class="card-body">
+                        <!-- 진행 바 -->
+                        <div class="progress mb-4" style="height: 30px;">
+                            <div 
+                                id="progressBar" 
+                                class="progress-bar progress-bar-striped progress-bar-animated" 
+                                role="progressbar" 
+                                style="width: 0%"
+                            >
+                                0%
+                            </div>
+                        </div>
+
+                        <!-- 현재 단계 표시 -->
+                        <div class="current-stage text-center mb-4">
+                            <h5 id="currentStage">문서 분석 중...</h5>
+                            <p class="text-muted" id="stageDescription">
+                                AI가 비즈니스 문서를 분석하고 있습니다
+                            </p>
+                        </div>
+
+                        <!-- 생성 단계 체크리스트 -->
+                        <div class="stage-checklist">
+                            <div class="stage-item" data-stage="document_analysis">
+                                <i class="fas fa-circle-notch fa-spin"></i>
+                                <span>문서 분석</span>
+                            </div>
+                            <div class="stage-item" data-stage="structure_design">
+                                <i class="far fa-circle"></i>
+                                <span>구조 설계</span>
+                            </div>
+                            <div class="stage-item" data-stage="content_generation">
+                                <i class="far fa-circle"></i>
+                                <span>콘텐츠 생성</span>
+                            </div>
+                            <div class="stage-item" data-stage="design_application">
+                                <i class="far fa-circle"></i>
+                                <span>디자인 적용</span>
+                            </div>
+                            <div class="stage-item" data-stage="quality_review">
+                                <i class="far fa-circle"></i>
+                                <span>품질 검토</span>
+                            </div>
+                        </div>
+
+                        <!-- 품질 점수 (완료 후 표시) -->
+                        <div id="qualityScore" class="quality-score mt-4" style="display: none;">
+                            <div class="alert alert-success">
+                                <h5><i class="fas fa-check-circle"></i> 생성 완료!</h5>
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <strong>품질 점수:</strong>
+                                        <div class="score-badge">
+                                            <span id="scoreValue">0.00</span> / 1.00
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>생성 시간:</strong>
+                                        <span id="generationTime">0</span>초
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center">
+                        <button 
+                            id="downloadPPT" 
+                            class="btn btn-success btn-lg" 
+                            style="display: none;"
+                        >
+                            <i class="fas fa-download"></i> PPT 다운로드
+                        </button>
+                        <button 
+                            id="createNew" 
+                            class="btn btn-outline-primary btn-lg ms-3" 
+                            style="display: none;"
+                        >
+                            <i class="fas fa-plus"></i> 새로 만들기
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-center">
+            <p>&copy; 2025 McKinsey PPT Generator | Powered by AI</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+
+2. frontend/css/style.css (약 300줄)
+css/* ========================================
+   McKinsey PPT Generator - Custom Styles
+   ======================================== */
+
+/* 전역 스타일 */
+:root {
+    --primary-color: #0076A8;
+    --secondary-color: #F47621;
+    --text-color: #53565A;
+    --success-color: #6BA644;
+    --background-color: #F8F9FA;
+    --border-color: #E0E0E0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* Header */
+.header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #005580 100%);
+    color: white;
+    padding: 2rem 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.logo {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.logo i {
+    color: var(--secondary-color);
+    margin-right: 0.5rem;
+}
+
+.version {
+    background: rgba(255,255,255,0.2);
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+/* Main Content */
+.main-content {
+    padding: 3rem 0;
+    min-height: calc(100vh - 200px);
+}
+
+/* Progress Steps */
+.progress-steps {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 600px;
+    margin: 0 auto 3rem;
+    position: relative;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+.step.active .step-number {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    transform: scale(1.1);
+}
+
+.step.completed .step-number {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+}
+
+.step-label {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.step-line {
+    flex: 1;
+    height: 3px;
+    background: var(--border-color);
+    margin: 0 1rem;
+    position: relative;
+    top: -12px;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.card-header {
+    background: white;
+    border-bottom: 2px solid var(--border-color);
+    padding: 1.5rem;
+}
+
+.card-header h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.card-header i {
+    margin-right: 0.5rem;
+}
+
+.card-body {
+    padding: 2rem;
+}
+
+.card-footer {
+    background: white;
+    border-top: 2px solid var(--border-color);
+    padding: 1.5rem;
+}
+
+/* Step Content */
+.step-content {
+    display: none;
+}
+
+.step-content.active {
+    display: block;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Document Input */
+.document-input {
+    font-size: 1rem;
+    line-height: 1.8;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+}
+
+.document-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 118, 168, 0.25);
+}
+
+.char-counter {
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+/* Buttons */
+.btn {
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background: #005580;
+    border-color: #005580;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 118, 168, 0.3);
+}
+
+.btn-success {
+    background: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.btn-success:hover {
+    background: #5a9439;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(107, 166, 68, 0.3);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Form Controls */
+.form-select,
+.form-control {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-select:focus,
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 118, 168, 0.25);
+}
+
+.form-label {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.form-label i {
+    color: var(--primary-color);
+    margin-right: 0.3rem;
+}
+
+/* Range Slider */
+.form-range::-webkit-slider-thumb {
+    background: var(--primary-color);
+}
+
+.form-range::-moz-range-thumb {
+    background: var(--primary-color);
+}
+
+/* Alerts */
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+.alert-info {
+    background: rgba(0, 118, 168, 0.1);
+    color: var(--primary-color);
+}
+
+.alert-success {
+    background: rgba(107, 166, 68, 0.1);
+    color: var(--success-color);
+}
+
+/* Progress Bar */
+.progress {
+    border-radius: 8px;
+    background: var(--border-color);
+}
+
+.progress-bar {
+    background: var(--primary-color);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* Stage Checklist */
+.stage-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.stage-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.stage-item i {
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    color: var(--text-color);
+}
+
+.stage-item.processing {
+    border-color: var(--primary-color);
+    background: rgba(0, 118, 168, 0.05);
+}
+
+.stage-item.processing i {
+    color: var(--primary-color);
+}
+
+.stage-item.completed {
+    border-color: var(--success-color);
+    background: rgba(107, 166, 68, 0.05);
+}
+
+.stage-item.completed i {
+    color: var(--success-color);
+}
+
+/* Quality Score */
+.quality-score {
+    text-align: center;
+}
+
+.score-badge {
+    display: inline-block;
+    background: var(--success-color);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 25px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+}
+
+/* Footer */
+.footer {
+    background: white;
+    border-top: 2px solid var(--border-color);
+    padding: 2rem 0;
+    margin-top: 3rem;
+}
+
+.footer p {
+    margin: 0;
+    color: var(--text-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .progress-steps {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .step-line {
+        display: none;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.fa-spin {
+    animation: fa-spin 2s infinite linear;
+}
+
+@keyframes fa-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+3. frontend/js/api.js (약 150줄)
+javascript/**
+ * API 통신 모듈
+ * FastAPI 백엔드와 통신
+ */
+
+const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+class APIClient {
+    constructor() {
+        this.baseURL = API_BASE_URL;
+    }
+
+    /**
+     * PPT 생성 요청
+     */
+    async generatePPT(data) {
+        try {
+            const response = await fetch(`${this.baseURL}/generate-ppt`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('PPT 생성 요청 실패:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * PPT 생성 상태 조회
+     */
+    async getPPTStatus(pptId) {
+        try {
+            const response = await fetch(`${this.baseURL}/ppt-status/${pptId}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('상태 조회 실패:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * PPT 파일 다운로드 URL 생성
+     */
+    getDownloadURL(pptId) {
+        return `${this.baseURL}/download/${pptId}`;
+    }
+
+    /**
+     * PPT 삭제
+     */
+    async deletePPT(pptId) {
+        try {
+            const response = await fetch(`${this.baseURL}/ppt/${pptId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('PPT 삭제 실패:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 헬스 체크
+     */
+    async healthCheck() {
+        try {
+            const response = await fetch('http://localhost:8000/health');
+            return await response.json();
+        } catch (error) {
+            console.error('헬스 체크 실패:', error);
+            return { status: 'error' };
+        }
+    }
+}
+
+// API 클라이언트 인스턴스 생성
+const api = new APIClient();
+
+4. frontend/js/app.js (약 400줄)
+javascript/**
+ * McKinsey PPT Generator - 메인 애플리케이션 로직
+ */
+
+// 전역 변수
+let currentStep = 1;
+let currentPPTId = null;
+let pollInterval = null;
+
+// 단계 설명
+const stageDescriptions = {
+    'document_analysis': 'AI가 비즈니스 문서를 분석하고 있습니다',
+    'structure_design': 'McKinsey MECE 구조를 설계하고 있습니다',
+    'content_generation': '헤드라인과 인사이트를 생성하고 있습니다',
+    'design_application': '전문적인 디자인을 적용하고 있습니다',
+    'quality_review': '품질을 검토하고 최적화하고 있습니다'
+};
+
+// DOM 요소
+const elements = {
+    documentInput: document.getElementById('documentInput'),
+    charCount: document.getElementById('charCount'),
+    nextToOptions: document.getElementById('nextToOptions'),
+    backToDocument: document.getElementById('backToDocument'),
+    generatePPT: document.getElementById('generatePPT'),
+    styleSelect: document.getElementById('styleSelect'),
+    audienceSelect: document.getElementById('audienceSelect'),
+    numSlidesRange: document.getElementById('numSlidesRange'),
+    numSlidesValue: document.getElementById('numSlidesValue'),
+    languageSelect: document.getElementById('languageSelect'),
+    progressBar: document.getElementById('progressBar'),
+    currentStage: document.getElementById('currentStage'),
+    stageDescription: document.getElementById('stageDescription'),
+    qualityScore: document.getElementById('qualityScore'),
+    scoreValue: document.getElementById('scoreValue'),
+    generationTime: document.getElementById('generationTime'),
+    downloadPPT: document.getElementById('downloadPPT'),
+    createNew: document.getElementById('createNew')
+};
+
+// 초기화
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+    setupEventListeners();
+    checkAPIHealth();
+});
+
+/**
+ * 앱 초기화
+ */
+function initializeApp() {
+    console.log('McKinsey PPT Generator 초기화...');
+    updateCharCount();
+}
+
+/**
+ * 이벤트 리스너 설정
+ */
+function setupEventListeners() {
+    // 문서 입력 카운터
+    elements.documentInput.addEventListener('input', updateCharCount);
+
+    // 슬라이드 수 슬라이더
+    elements.numSlidesRange.addEventListener('input', () => {
+        elements.numSlidesValue.textContent = elements.numSlidesRange.value;
+    });
+
+    // 단계 이동 버튼
+    elements.nextToOptions.addEventListener('click', () => goToStep(2));
+    elements.backToDocument.addEventListener('click', () => goToStep(1));
+    elements.generatePPT.addEventListener('click', startGeneration);
+    elements.downloadPPT.addEventListener('click', downloadPPTFile);
+    elements.createNew.addEventListener('click', () => location.reload());
+}
+
+/**
+ * API 헬스 체크
+ */
+async function checkAPIHealth() {
+    try {
+        const health = await api.healthCheck();
+        if (health.status === 'healthy') {
+            console.log('✅ API 서버 정상 작동');
+        } else {
+            showAlert('경고: API 서버 상태를 확인할 수 없습니다', 'warning');
+        }
+    } catch (error) {
+        showAlert('오류: API 서버에 연결할 수 없습니다', 'danger');
+    }
+}
+
+/**
+ * 문자 수 업데이트 및 버튼 활성화
+ */
+function updateCharCount() {
+    const text = elements.documentInput.value;
+    const charCount = text.length;
+    elements.charCount.textContent = charCount;
+
+    // 100자 이상이면 버튼 활성화
+    if (charCount >= 100) {
+        elements.nextToOptions.disabled = false;
+        elements.charCount.style.color = '#6BA644';
+    } else {
+        elements.nextToOptions.disabled = true;
+        elements.charCount.style.color = '#53565A';
+    }
+}
+
+/**
+ * 단계 이동
+ */
+function goToStep(step) {
+    // 현재 단계 비활성화
+    document.querySelector(`#step-${currentStep}`).classList.remove('active');
+    document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
+
+    // 새 단계 활성화
+    currentStep = step;
+    document.querySelector(`#step-${currentStep}`).classList.add('active');
+    document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
+
+    // 이전 단계 완료 표시
+    for (let i = 1; i < currentStep; i++) {
+        document.querySelector(`.step[data-step="${i}"]`).classList.add('completed');
+    }
+
+    // 페이지 상단으로 스크롤
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/**
+ * PPT 생성 시작
+ */
+async function startGeneration() {
+    try {
+        // 로딩 표시
+        elements.generatePPT.disabled = true;
+        elements.generatePPT.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 생성 중...';
+
+        // Step 3으로 이동
+        goToStep(3);
+
+        // 요청 데이터 준비
+        const requestData = {
+            document: elements.documentInput.value,
+            style: elements.styleSelect.value,
+            target_audience: elements.audienceSelect.value,
+            num_slides: parseInt(elements.numSlidesRange.value),
+            language: elements.languageSelect.value
+        };
+
+        console.log('PPT 생성 요청:', requestData);
+
+        // API 호출
+        const response = await api.generatePPT(requestData);
+        currentPPTId = response.ppt_id;
+
+        console.log('PPT ID:', currentPPTId);
+
+        // 진행 상황 폴링 시작
+        startPolling();
+
+    } catch (error) {
+        console.error('PPT 생성 실패:', error);
+        showAlert('PPT 생성 중 오류가 발생했습니다: ' + error.message, 'danger');
+        
+        // 버튼 복원
+        elements.generatePPT.disabled = false;
+        elements.generatePPT.innerHTML = '<i class="fas fa-magic"></i> PPT 생성하기';
+    }
+}
+
+/**
+ * 진행 상황 폴링 시작
+ */
+function startPolling() {
+    // 즉시 한 번 실행
+    pollStatus();
+
+    // 1초마다 상태 확인
+    pollInterval = setInterval(pollStatus, 1000);
+}
+
+/**
+ * 상태 폴링
+ */
+async function pollStatus() {
+    try {
+        const status = await api.getPPTStatus(currentPPTId);
+        
+        console.log('현재 상태:', status);
+
+        // 진행률 업데이트
+        updateProgress(status.progress);
+
+        // 현재 단계 업데이트
+        if (status.current_stage) {
+            updateCurrentStage(status.current_stage);
+        }
+
+        // 완료 처리
+        if (status.status === 'completed') {
+            clearInterval(pollInterval);
+            handleCompletion(status);
+        }
+
+        // 실패 처리
+        if (status.status === 'failed') {
+            clearInterval(pollInterval);
+            handleFailure(status);
+        }
+
+    } catch (error) {
+        console.error('상태 조회 실패:', error);
+    }
+}
+
+/**
+ * 진행률 업데이트
+ */
+function updateProgress(progress) {
+    elements.progressBar.style.width = `${progress}%`;
+    elements.progressBar.textContent = `${progress}%`;
+}
+
+/**
+ * 현재 단계 업데이트
+ */
+function updateCurrentStage(stage) {
+    elements.currentStage.textContent = getStageName(stage);
+    elements.stageDescription.textContent = stageDescriptions[stage] || '처리 중...';
+
+    // 체크리스트 업데이트
+    updateStageChecklist(stage);
+}
+
+/**
+ * 단계 이름 가져오기
+ */
+function getStageName(stage) {
+    const names = {
+        'document_analysis': '문서 분석',
+        'structure_design': '구조 설계',
+        'content_generation': '콘텐츠 생성',
+        'design_application': '디자인 적용',
+        'quality_review': '품질 검토'
+    };
+    return names[stage] || stage;
+}
+
+/**
+ * 단계 체크리스트 업데이트
+ */
+function updateStageChecklist(currentStage) {
+    const stages = ['document_analysis', 'structure_design', 'content_generation', 'design_application', 'quality_review'];
+    const currentIndex = stages.indexOf(currentStage);
+
+    stages.forEach((stage, index) => {
+        const item = document.querySelector(`.stage-item[data-stage="${stage}"]`);
+        const icon = item.querySelector('i');
+
+        if (index < currentIndex) {
+            // 완료된 단계
+            item.classList.remove('processing');
+            item.classList.add('completed');
+            icon.className = 'fas fa-check-circle';
+        } else if (index === currentIndex) {
+            // 현재 진행 중인 단계
+            item.classList.add('processing');
+            item.classList.remove('completed');
+            icon.className = 'fas fa-circle-notch fa-spin';
+        } else {
+            // 대기 중인 단계
+            item.classList.remove('processing', 'completed');
+            icon.className = 'far fa-circle';
+        }
+    });
+}
+
+/**
+ * 생성 완료 처리
+ */
+function handleCompletion(status) {
+    console.log('PPT 생성 완료!', status);
+
+    // 진행률 100%
+    updateProgress(100);
+
+    // 모든 단계 완료 표시
+    document.querySelectorAll('.stage-item').forEach(item => {
+        item.classList.add('completed');
+        item.classList.remove('processing');
+        item.querySelector('i').className = 'fas fa-check-circle';
+    });
+
+    // 품질 점수 표시
+    elements.qualityScore.style.display = 'block';
+    elements.scoreValue.textContent = (status.quality_score || 0).toFixed(3);
+    
+    // 생성 시간 계산
+    const createdAt = new Date(status.created_at);
+    const completedAt = new Date(status.completed_at);
+    const duration = ((completedAt - createdAt) / 1000).toFixed(1);
+    elements.generationTime.textContent = duration;
+
+    // 다운로드 버튼 표시
+    elements.downloadPPT.style.display = 'inline-block';
+    elements.createNew.style.display = 'inline-block';
+
+    // 성공 알림
+    showAlert('PPT 생성이 완료되었습니다!', 'success');
+}
+
+/**
+ * 생성 실패 처리
+ */
+function handleFailure(status) {
+    console.error('PPT 생성 실패:', status);
+    showAlert('PPT 생성 중 오류가 발생했습니다: ' + (status.error || '알 수 없는 오류'), 'danger');
+    
+    // 새로 만들기 버튼만 표시
+    elements.createNew.style.display = 'inline-block';
+}
+
+/**
+ * PPT 파일 다운로드
+ */
+function downloadPPTFile() {
+    const downloadURL = api.getDownloadURL(currentPPTId);
+    window.open(downloadURL, '_blank');
+    
+    showAlert('PPT 파일을 다운로드합니다...', 'info');
+}
+
+/**
+ * 알림 표시
+ */
+function showAlert(message, type = 'info') {
+    // 기존 알림 제거
+    const existingAlerts = document.querySelectorAll('.alert-floating');
+    existingAlerts.forEach(alert => alert.remove());
+
+    // 새 알림 생성
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-floating`;
+    alert.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    `;
+    alert.innerHTML = `
+        <strong>${getAlertIcon(type)}</strong> ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+
+    document.body.appendChild(alert);
+
+    // 3초 후 자동 제거
+    setTimeout(() => {
+        alert.remove();
+    }, 3000);
+}
+
+/**
+ * 알림 아이콘
+ */
+function getAlertIcon(type) {
+    const icons = {
+        'success': '<i class="fas fa-check-circle"></i>',
+        'danger': '<i class="fas fa-exclamation-circle"></i>',
+        'warning': '<i class="fas fa-exclamation-triangle"></i>',
+        'info': '<i class="fas fa-info-circle"></i>'
+    };
+    return icons[type] || icons.info;
+}
+
+// 디버깅용
+window.debugAPI = api;
+
+5. docker-compose.yml 수정
+yamlversion: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: mckinsey-ppt-generator-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./output:/app/output
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - ppt-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mckinsey-ppt-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ppt-network
+
+  # 🆕 Nginx 웹 서버 추가
+  nginx:
+    image: nginx:alpine
+    container_name: mckinsey-ppt-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - ppt-network
+
+networks:
+  ppt-network:
+    driver: bridge
+
+6. nginx.conf (약 50줄)
+nginxevents {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # CORS 설정
+    map $http_origin $cors_origin {
+        default "";
+        "~^http://localhost(:[0-9]+)?$" $http_origin;
+        "~^http://127.0.0.1(:[0-9]+)?$" $http_origin;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        # 정적 파일 서빙
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+            
+            # CORS 헤더
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type" always;
+        }
+
+        # API 프록시 (선택사항 - 직접 8000 포트 사용 가능)
+        location /api/ {
+            proxy_pass http://app:8000/api/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            
+            # CORS 헤더
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type" always;
+        }
+    }
+}
+
+✅ 검증 기준
+1. 로컬 실행 테스트
+bash# Docker 컨테이너 시작
+cd D:\PPT_Designer_OK\mckinsey-ppt-generator
+docker-compose up -d
+
+# 웹 브라우저에서 확인
+http://localhost          # 메인 UI
+http://localhost:8000/docs  # API 문서
+```
+
+### 2. **기능 테스트 체크리스트**
+- [ ] 문서 입력 시 문자 수 카운팅 동작
+- [ ] 100자 미만일 때 "다음 단계" 버튼 비활성화
+- [ ] 옵션 설정 페이지 전환 애니메이션
+- [ ] PPT 생성 요청 시 Step 3로 이동
+- [ ] 진행 상황 실시간 업데이트
+- [ ] 단계별 체크리스트 아이콘 변경
+- [ ] 완료 후 품질 점수 표시
+- [ ] PPT 다운로드 버튼 동작
+- [ ] "새로 만들기" 버튼으로 초기화
+
+### 3. **UI/UX 검증**
+- [ ] McKinsey 브랜드 색상 적용 (#0076A8, #F47621)
+- [ ] 반응형 디자인 (모바일/태블릿/데스크톱)
+- [ ] 애니메이션 부드러움
+- [ ] 로딩 상태 명확함
+- [ ] 에러 메시지 사용자 친화적
+
+---
+
+## 🎯 성공 지표
+
+- [ ] 웹 브라우저에서 http://localhost 접속 성공
+- [ ] 문서 입력 → PPT 생성 → 다운로드 전체 플로우 동작
+- [ ] 실시간 진행 상황 업데이트 정상 작동
+- [ ] 생성된 PPT 파일 정상 다운로드
+- [ ] McKinsey 스타일 디자인 완벽 구현
+
+---
+
+## 💬 Claude Code에게 전달할 메시지
+```
+안녕! McKinsey PPT 프로젝트에 웹 UI를 추가하려고 해.
+
+📊 현재 상태:
+- API 구현 완료 (Phase 6)
+- 백엔드는 모두 작동 중
+
+🎯 이번 작업:
+McKinsey 스타일의 전문적인 **웹 프론트엔드 UI** 구축
+
+📁 생성할 파일:
+1. frontend/index.html (150줄) - 메인 페이지
+2. frontend/css/style.css (300줄) - McKinsey 스타일
+3. frontend/js/api.js (150줄) - API 통신
+4. frontend/js/app.js (400줄) - 메인 로직
+5. nginx.conf (50줄) - 웹 서버 설정
+6. docker-compose.yml 수정 - nginx 추가
+
+🎨 디자인 요구사항:
+- McKinsey 브랜드 색상 (#0076A8, #F47621)
+- 3단계 프로세스 UI (문서 입력 → 옵션 → 생성)
+- 실시간 진행 상황 표시
+- 깔끔하고 전문적인 디자인
+
+✅ 완료 기준:
+- http://localhost 접속 시 UI 표시
+- 문서 입력 → PPT 다운로드 전체 플로우 동작
+- 반응형 디자인 적용
+
+위 작업지시서대로 구현해줘!

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown to PPT Converter - McKinsey Style</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .upload-section {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            margin-bottom: 2rem;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e1e8ed;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #666;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .tab.active {
+            color: #667eea;
+        }
+        
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #667eea;
+        }
+        
+        .upload-area {
+            border: 3px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #f7fafc;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f5ff;
+        }
+        
+        .upload-area.active {
+            border-color: #667eea;
+            background: #e6f0ff;
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .markdown-editor {
+            width: 100%;
+            min-height: 400px;
+            padding: 1rem;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+        }
+        
+        .markdown-editor:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        
+        .preview-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .preview-slide {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .preview-slide h3 {
+            color: #002E6C;
+            margin-bottom: 0.5rem;
+        }
+        
+        .preview-slide ul {
+            margin-left: 1.5rem;
+            color: #495057;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+        }
+        
+        .btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .alert-info {
+            background: #e6f3ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .sample-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .sample-box pre {
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            color: #495057;
+        }
+        
+        .login-section {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .slide-counter {
+            background: #667eea;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const API_URL = 'http://localhost:8000';
+        
+        // Login Component
+        function Login({ onLogin }) {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('password', password);
+                    
+                    const response = await axios.post(`${API_URL}/api/v1/auth/login`, formData);
+                    localStorage.setItem('token', response.data.access_token);
+                    onLogin(response.data.access_token);
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'Login failed');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>📝 Markdown to PPT Converter</h1>
+                        <p>McKinsey-quality presentations from Markdown</p>
+                    </div>
+                    
+                    <div className="login-section">
+                        <h2 style={{textAlign: 'center', marginBottom: '2rem'}}>Login Required</h2>
+                        {error && <div className="alert alert-error">{error}</div>}
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>Username</label>
+                                <input 
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Password</label>
+                                <input 
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <button type="submit" className="btn" style={{width: '100%'}} disabled={loading}>
+                                {loading ? 'Logging in...' : 'Login'}
+                            </button>
+                        </form>
+                        <div style={{marginTop: '1rem', textAlign: 'center', color: '#666', fontSize: '0.9rem'}}>
+                            Test Account: testuser / TestPass123
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Main App
+        function MarkdownConverter({ token, onLogout }) {
+            const [activeTab, setActiveTab] = useState('upload');
+            const [markdownContent, setMarkdownContent] = useState('');
+            const [title, setTitle] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState('');
+            const [preview, setPreview] = useState(null);
+            const [dragActive, setDragActive] = useState(false);
+            const fileInputRef = useRef(null);
+            
+            useEffect(() => {
+                loadSampleMarkdown();
+            }, []);
+            
+            const loadSampleMarkdown = async () => {
+                try {
+                    const response = await axios.get(`${API_URL}/api/v1/markdown/sample`);
+                    setMarkdownContent(response.data.sample_markdown);
+                } catch (err) {
+                    console.error('Failed to load sample:', err);
+                }
+            };
+            
+            const handleDrag = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.type === "dragenter" || e.type === "dragover") {
+                    setDragActive(true);
+                } else if (e.type === "dragleave") {
+                    setDragActive(false);
+                }
+            };
+            
+            const handleDrop = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragActive(false);
+                
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            };
+            
+            const handleFile = (file) => {
+                if (!file.name.endsWith('.md')) {
+                    setError('Please upload a .md file');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    setMarkdownContent(e.target.result);
+                    setTitle(file.name.replace('.md', ''));
+                    setActiveTab('editor');
+                };
+                reader.readAsText(file);
+            };
+            
+            const handleFileUpload = async () => {
+                const file = fileInputRef.current?.files[0];
+                if (!file) {
+                    setError('Please select a file');
+                    return;
+                }
+                
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('title', title || file.name.replace('.md', ''));
+                    
+                    const response = await axios.post(
+                        `${API_URL}/api/v1/markdown/upload`,
+                        formData,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'multipart/form-data'
+                            }
+                        }
+                    );
+                    
+                    setResult(response.data);
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'Failed to convert markdown');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const handleTextConvert = async () => {
+                if (!markdownContent || !title) {
+                    setError('Please enter markdown content and title');
+                    return;
+                }
+                
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('markdown_content', markdownContent);
+                    formData.append('title', title);
+                    
+                    const response = await axios.post(
+                        `${API_URL}/api/v1/markdown/convert`,
+                        formData,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`
+                            }
+                        }
+                    );
+                    
+                    setResult(response.data);
+                } catch (err) {
+                    setError(err.response?.data?.detail || 'Failed to convert markdown');
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const previewMarkdown = () => {
+                const sections = markdownContent.split(/\n(?:---|===|\*\*\*)\n/);
+                const slides = sections.map((section, index) => {
+                    const lines = section.trim().split('\n');
+                    const title = lines.find(line => line.startsWith('#'))?.replace(/^#+\s*/, '') || `Slide ${index + 1}`;
+                    const bullets = lines.filter(line => line.startsWith('-') || line.startsWith('*')).map(line => line.replace(/^[-*]\s*/, ''));
+                    return { title, bullets };
+                });
+                setPreview(slides);
+            };
+            
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>📝 Markdown to PPT Converter</h1>
+                        <p>Create McKinsey-quality presentations from Markdown</p>
+                        <button 
+                            className="btn btn-secondary" 
+                            onClick={onLogout}
+                            style={{marginTop: '1rem'}}
+                        >
+                            Logout
+                        </button>
+                    </div>
+                    
+                    <div className="upload-section">
+                        <div className="tabs">
+                            <button 
+                                className={`tab ${activeTab === 'upload' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('upload')}
+                            >
+                                📁 Upload File
+                            </button>
+                            <button 
+                                className={`tab ${activeTab === 'editor' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('editor')}
+                            >
+                                ✏️ Markdown Editor
+                            </button>
+                        </div>
+                        
+                        {error && <div className="alert alert-error">{error}</div>}
+                        {result && (
+                            <div className="alert alert-success">
+                                ✅ {result.message}
+                                <br />
+                                <button 
+                                    className="btn"
+                                    style={{marginTop: '1rem'}}
+                                    onClick={async () => {
+                                        try {
+                                            const response = await axios.get(
+                                                `${API_URL}${result.download_url}`,
+                                                {
+                                                    headers: {
+                                                        Authorization: `Bearer ${token}`
+                                                    },
+                                                    responseType: 'blob'
+                                                }
+                                            );
+                                            
+                                            const url = window.URL.createObjectURL(new Blob([response.data]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `${result.title || 'presentation'}.pptx`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.remove();
+                                            window.URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                            setError('Failed to download presentation');
+                                        }
+                                    }}
+                                >
+                                    📥 Download PPT ({result.slide_count} slides)
+                                </button>
+                            </div>
+                        )}
+                        
+                        {activeTab === 'upload' && (
+                            <>
+                                <div 
+                                    className={`upload-area ${dragActive ? 'active' : ''}`}
+                                    onDragEnter={handleDrag}
+                                    onDragLeave={handleDrag}
+                                    onDragOver={handleDrag}
+                                    onDrop={handleDrop}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <div className="upload-icon">📄</div>
+                                    <h3>Drop your .md file here</h3>
+                                    <p>or click to browse</p>
+                                    <input 
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".md"
+                                        style={{display: 'none'}}
+                                        onChange={(e) => handleFile(e.target.files[0])}
+                                    />
+                                </div>
+                                
+                                <div className="form-group" style={{marginTop: '2rem'}}>
+                                    <label>Presentation Title</label>
+                                    <input 
+                                        type="text"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        placeholder="Enter presentation title"
+                                    />
+                                </div>
+                                
+                                <button 
+                                    className="btn" 
+                                    onClick={handleFileUpload}
+                                    disabled={loading || !fileInputRef.current?.files[0]}
+                                >
+                                    {loading ? 'Converting...' : 'Convert to PPT'}
+                                </button>
+                            </>
+                        )}
+                        
+                        {activeTab === 'editor' && (
+                            <>
+                                <div className="form-group">
+                                    <label>Presentation Title</label>
+                                    <input 
+                                        type="text"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        placeholder="Enter presentation title"
+                                    />
+                                </div>
+                                
+                                <div className="form-group">
+                                    <label>Markdown Content</label>
+                                    <textarea 
+                                        className="markdown-editor"
+                                        value={markdownContent}
+                                        onChange={(e) => setMarkdownContent(e.target.value)}
+                                        placeholder="Enter or paste your markdown here..."
+                                    />
+                                </div>
+                                
+                                <div style={{display: 'flex', gap: '1rem'}}>
+                                    <button 
+                                        className="btn" 
+                                        onClick={handleTextConvert}
+                                        disabled={loading || !markdownContent || !title}
+                                    >
+                                        {loading ? 'Converting...' : '🚀 Convert to PPT'}
+                                    </button>
+                                    
+                                    <button 
+                                        className="btn btn-secondary"
+                                        onClick={previewMarkdown}
+                                    >
+                                        👁️ Preview Slides
+                                    </button>
+                                    
+                                    <button 
+                                        className="btn btn-secondary"
+                                        onClick={loadSampleMarkdown}
+                                    >
+                                        📋 Load Sample
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    
+                    {preview && (
+                        <div className="preview-section">
+                            <div className="preview-header">
+                                <h3>Slide Preview</h3>
+                                <span className="slide-counter">{preview.length} slides</span>
+                            </div>
+                            {preview.map((slide, index) => (
+                                <div key={index} className="preview-slide">
+                                    <h3>{slide.title}</h3>
+                                    {slide.bullets.length > 0 && (
+                                        <ul>
+                                            {slide.bullets.map((bullet, i) => (
+                                                <li key={i}>{bullet}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    
+                    <div className="sample-box">
+                        <h4>📖 Markdown Rules</h4>
+                        <pre>{`# Title Slide
+## Section Heading
+### Content Slide
+
+- Bullet point 1
+- Bullet point 2
+
+--- (slide break)
+
+> Speaker notes
+
+| Header | Header |
+|--------|--------|
+| Cell   | Cell   |`}</pre>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Main App
+        function App() {
+            const [token, setToken] = useState(localStorage.getItem('token'));
+            
+            const handleLogin = (newToken) => {
+                setToken(newToken);
+            };
+            
+            const handleLogout = () => {
+                localStorage.removeItem('token');
+                setToken(null);
+            };
+            
+            if (!token) {
+                return <Login onLogin={handleLogin} />;
+            }
+            
+            return <MarkdownConverter token={token} onLogout={handleLogout} />;
+        }
+        
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

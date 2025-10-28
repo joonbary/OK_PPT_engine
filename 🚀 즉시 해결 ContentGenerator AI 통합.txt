@@ -1,0 +1,259 @@
+🚀 즉시 해결: ContentGenerator AI 통합
+원스텝 수정 스크립트 (복사-붙여넣기만!)
+powershellcd D:\PPT_Designer_OK\mckinsey-ppt-generator
+
+# ==========================================
+# ContentGenerator AI 모드 활성화
+# ==========================================
+
+Write-Host "🔧 ContentGenerator를 AI 모드로 전환 중..." -ForegroundColor Cyan
+
+# 1. 백업
+Copy-Item app/services/content_generator.py app/services/content_generator.py.backup
+Write-Host "✅ 백업 완료: content_generator.py.backup"
+
+# 2. __init__ 메서드에 AI 클라이언트 추가
+$content = Get-Content app/services/content_generator.py -Raw
+
+# Mock 초기화 제거하고 AI 클라이언트 추가
+$aiInit = @"
+        
+        # AI 모드 초기화
+        self.use_ai = True
+        self.llm_client = None
+        
+        try:
+            import os
+            if os.getenv('OPENAI_API_KEY'):
+                from openai import AsyncOpenAI
+                self.llm_client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                print('✅ ContentGenerator: OpenAI client initialized')
+            else:
+                print('⚠️  ContentGenerator: No API key found, using templates')
+                self.use_ai = False
+        except Exception as e:
+            print(f'⚠️  ContentGenerator: AI init failed: {e}')
+            self.use_ai = False
+        
+        # Mock 에이전트 초기화 (폴백용)
+"@
+
+$content = $content -replace "# Mock 에이전트 초기화\(개발/테스트용\)`r`n\s+self\._initialize_mock_agents\(\)", $aiInit
+
+# 3. _generate_slide_content에 AI 호출 추가
+$aiContentMethod = @"
+
+    async def _generate_slide_content(
+        self,
+        title: str,
+        content_type: str,
+        structure: Dict[str, Any],
+        slide_num: int
+    ) -> Dict[str, Any]:
+        """슬라이드 콘텐츠 생성 (AI 우선, Mock 폴백)"""
+        
+        # AI 모드 시도
+        if self.use_ai and self.llm_client:
+            try:
+                return await self._generate_ai_content(title, content_type, structure, slide_num)
+            except Exception as e:
+                print(f'⚠️  AI generation failed for slide {slide_num}: {e}')
+                print('   Falling back to template...')
+        
+        # Mock 폴백
+        if content_type == "summary":
+            return self._generate_summary_content(structure)
+        elif content_type == "chart":
+            return self._generate_chart_content(structure, slide_num)
+        elif content_type == "comparison":
+            return self._generate_comparison_content(structure)
+        else:
+            return self._generate_text_content(title, structure)
+    
+    async def _generate_ai_content(
+        self,
+        title: str,
+        content_type: str,
+        structure: Dict[str, Any],
+        slide_num: int
+    ) -> Dict[str, Any]:
+        """AI를 사용한 콘텐츠 생성"""
+        
+        # 프롬프트 구성
+        prompt = f\"\"\"
+당신은 McKinsey 컨설턴트입니다. 다음 슬라이드의 콘텐츠를 생성하세요.
+
+슬라이드 제목: {title}
+콘텐츠 타입: {content_type}
+주요 키워드: {', '.join(structure.get('keywords', [])[:5])}
+
+다음 형식으로 JSON을 반환하세요:
+{{
+    "headline": "전략적 헤드라인 (액션 지향, 정량화)",
+    "bullets": [
+        "핵심 포인트 1",
+        "핵심 포인트 2",
+        "핵심 포인트 3"
+    ],
+    "insights": "주요 인사이트"
+}}
+\"\"\"
+        
+        print(f'🤖 AI generating content for: {title}')
+        
+        response = await self.llm_client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=[
+                {"role": "system", "content": "You are a McKinsey consultant creating presentation content."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        import json
+        result = json.loads(response.choices[0].message.content)
+        print(f'✅ AI content generated for slide {slide_num}')
+        
+        return result
+"@
+
+# 기존 _generate_slide_content 메서드를 찾아서 교체
+$pattern = "async def _generate_slide_content\([^{]+\{[\s\S]*?(?=\n    async def|\n    def [^_]|\Z)"
+$content = $content -replace $pattern, $aiContentMethod.Trim()
+
+# 파일 저장
+$content | Out-File -FilePath app/services/content_generator.py -Encoding UTF8
+
+Write-Host "✅ ContentGenerator AI 통합 완료!" -ForegroundColor Green
+
+# ==========================================
+# requirements.txt에 openai 추가
+# ==========================================
+Write-Host "`n📦 OpenAI SDK 추가 중..." -ForegroundColor Cyan
+
+$reqPath = "requirements.txt"
+$requirements = Get-Content $reqPath -Raw
+
+if ($requirements -notmatch "openai") {
+    Add-Content $reqPath "`nopenai==1.52.0"
+    Write-Host "✅ openai 패키지 추가됨"
+}
+
+# ==========================================
+# .env 파일 확인/생성
+# ==========================================
+Write-Host "`n🔑 API 키 확인 중..." -ForegroundColor Cyan
+
+if (!(Test-Path .env)) {
+    @"
+# LLM API Keys
+OPENAI_API_KEY=sk-proj-여기에_실제_키_입력
+
+# Redis
+REDIS_URL=redis://redis:6379
+"@ | Out-File -FilePath ".env" -Encoding UTF8
+    
+    Write-Host "⚠️  .env 파일이 생성되었습니다!" -ForegroundColor Yellow
+    Write-Host "   메모장이 열립니다. OpenAI API 키를 입력하세요:" -ForegroundColor Yellow
+    Write-Host "   https://platform.openai.com/api-keys" -ForegroundColor Cyan
+    
+    Start-Sleep -Seconds 1
+    notepad .env
+    
+    Write-Host "`n⏸️  API 키 입력 후 Enter를 누르세요..." -ForegroundColor Yellow
+    Read-Host
+} else {
+    $envContent = Get-Content .env -Raw
+    if ($envContent -match "OPENAI_API_KEY=sk-") {
+        Write-Host "✅ OpenAI API 키 발견됨" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  .env 파일에 API 키가 없습니다!" -ForegroundColor Yellow
+        Write-Host "   메모장을 열어서 API 키를 입력하세요" -ForegroundColor Yellow
+        notepad .env
+        Read-Host "`n⏸️  API 키 입력 후 Enter를 누르세요..."
+    }
+}
+
+# ==========================================
+# Docker 재빌드 및 재시작
+# ==========================================
+Write-Host "`n🐋 Docker 재빌드 중..." -ForegroundColor Cyan
+Write-Host "   (openai 패키지 설치 필요)" -ForegroundColor Gray
+
+docker-compose down
+docker-compose up --build -d
+
+Write-Host "`n⏳ 컨테이너 시작 대기 중 (10초)..." -ForegroundColor Cyan
+Start-Sleep -Seconds 10
+
+# ==========================================
+# 로그 확인
+# ==========================================
+Write-Host "`n📋 초기화 로그 확인:" -ForegroundColor Cyan
+docker-compose logs app | Select-String -Pattern "ContentGenerator|OpenAI|API key" -Context 2
+
+Write-Host "`n" + "="*70 -ForegroundColor Green
+Write-Host "✅ AI 모드 활성화 완료!" -ForegroundColor Green
+Write-Host "="*70 -ForegroundColor Green
+Write-Host "`n🧪 이제 웹 UI에서 PPT를 생성해보세요:" -ForegroundColor Cyan
+Write-Host "   http://localhost`n" -ForegroundColor White
+
+🧪 테스트: AI가 작동하는지 확인
+위 스크립트 실행 후:
+1. 로그에서 AI 초기화 확인
+powershelldocker-compose logs app | Select-String -Pattern "ContentGenerator|OpenAI" -Context 3
+```
+
+**예상 출력 (성공):**
+```
+✅ ContentGenerator: OpenAI client initialized
+```
+
+**예상 출력 (실패):**
+```
+⚠️  ContentGenerator: No API key found, using templates
+2. 실제 PPT 생성 테스트
+powershell# 백그라운드에서 실시간 로그 보기
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd D:\PPT_Designer_OK\mckinsey-ppt-generator; docker-compose logs -f app | Select-String -Pattern 'AI|generating|ContentGenerator'"
+
+# 1초 대기
+Start-Sleep -Seconds 1
+
+# PPT 생성 요청
+$body = @"
+{
+  "document": "2024년 매출 1000억원 달성. 전년 대비 20% 증가. 신제품이 전체 매출의 40% 기여.",
+  "style": "mckinsey",
+  "target_audience": "executive",
+  "num_slides": 5,
+  "language": "ko"
+}
+"@
+
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/generate-ppt" -Method Post -Body $body -ContentType "application/json"
+```
+
+**로그에서 확인할 것:**
+- ✅ `🤖 AI generating content for: ...`
+- ✅ `✅ AI content generated for slide X`
+- ❌ `⚠️  AI generation failed` (API 키 문제)
+
+---
+
+## 📊 체크리스트
+```
+[ ] 1. 위 스크립트 실행 완료
+[ ] 2. .env 파일에 OpenAI API 키 입력 완료
+[ ] 3. Docker 재빌드 완료 (docker-compose logs에서 오류 없음)
+[ ] 4. 로그에 "ContentGenerator: OpenAI client initialized" 보임
+[ ] 5. 테스트 PPT 생성 시 로그에 "AI generating content" 보임
+
+💬 다음 단계
+위 스크립트 실행 후 결과를 알려주세요:
+
+로그 출력 결과 (docker-compose logs)
+API 키 입력 완료 여부
+테스트 PPT 생성 시 로그
+
+문제가 있으면 에러 메시지를 보내주세요! 🚀

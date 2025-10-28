@@ -1,0 +1,142 @@
+• Project Overview
+
+  - FastAPI-based PPT generation service with AI agents, static frontend via
+    Nginx, and Docker orchestration.
+  - Core features: document analysis, MECE-based content structuring, AI
+    slide generation, McKinsey-style templates, and standardized download
+    pipeline.
+
+  Structure
+
+  - Root
+      - Backend app: mckinsey-ppt-generator/app/
+      - Frontend (static): mckinsey-ppt-generator/frontend/
+      - Templates/Layouts: mckinsey-ppt-generator/app/templates/
+      - Orchestration: mckinsey-ppt-generator/docker-compose.yml, mckinsey-
+        ppt-generator/nginx.conf
+      - Entry API: mckinsey-ppt-generator/app/main.py
+  - Backend (key submodules)
+      - API endpoints: mckinsey-ppt-generator/app/api/v1/endpoints/
+          - ppt.py (generate, status, download)
+          - upload.py (document upload)
+      - Services: mckinsey-ppt-generator/app/services/
+          - content_generator_ai.py (LLM/heuristic content generation)
+          - design_applicator.py (styling; placeholders for layout hooks)
+          - workflow_orchestrator.py (end-to-end pipeline; saves to /app/
+            ppt_files)
+          - ppt_service.py (background generation, Redis status,
+            finalization)
+          - template_orchestrator.py (template selection/placement)
+          - text_fitter.py, pptx_generator.py, etc.
+      - Agents: mckinsey-ppt-generator/app/agents/
+          - strategist_agent.py (MECE split + slide mapping)
+          - data_analyst_agent.py, storyteller_agent.py, etc.
+      - Templates/Layouts: mckinsey-ppt-generator/app/templates/
+        mckinsey_layouts.py
+      - Core: mckinsey-ppt-generator/app/core/ (config, redis client,
+        logging)
+      - Utils: mckinsey-ppt-generator/app/utils/text_formatter.py (음슴체
+        변환)
+  - Frontend
+      - Static assets: mckinsey-ppt-generator/frontend/js/api.js, app.js,
+        CSS/HTML
+      - Calls API via same origin (/api/...) through Nginx proxy
+  - Orchestration
+      - docker-compose.yml (app, redis, nginx)
+      - nginx.conf (static + /api/ proxy, CORS headers)
+
+  Backend
+
+  - FastAPI app: mckinsey-ppt-generator/app/main.py
+      - CORS configured one time with explicit origins
+      - Health endpoints: /api/v1/health (also /health and root)
+  - Status/Download
+      - Redis-backed status; status endpoint returns stabilized JSON (always
+        200 + fields)
+      - Final PPT saved to /app/ppt_files/{ppt_id}.pptx and status.file_path
+        set accordingly
+      - Download endpoint falls back to search if needed
+
+  Frontend
+
+  - frontend/js/api.js: now posts multipart FormData and uses relative base
+    URL to avoid CORS; status polling and download handled.
+
+  Key Modules (recently updated)
+
+  - app/services/ppt_service.py: orchestrates AI pipeline, waits for file
+    existence, copies/saves to standard path, robust failed/completed
+    status.
+  - app/services/workflow_orchestrator.py: saves to /app/ppt_files/
+    {ppt_id}.pptx; creates presentation; passes language to generator.
+  - app/services/content_generator_ai.py:
+      - language-aware prompts (ko/en/ja), system message JSON-only, 한국어
+        음슴체 후처리(EumsumStyleConverter)
+      - fallback bullets use “•”
+      - when StrategistAgent provides slide_outline, uses it and focuses
+        strictly on the mapped segment
+      - generates spec hints for three_column / matrix layouts
+  - app/agents/strategist_agent.py:
+      - MECE decomposition via LLM with JSON parsing; keyword heuristic
+        fallback
+      - slide outline mapping (Title / Exec Summary / segments /
+        Recommendations)
+  - app/templates/mckinsey_layouts.py:
+      - three_column layout implemented; existing two_column and
+        matrix_slide retained
+  - app/services/template_orchestrator.py:
+      - template selection enhanced using spec.type, columns/matrix
+        presence, keywords
+      - routes Executive Summary → title_body, Market Analysis →
+        three_column, Strategic Options/Impact → matrix, Recommendations →
+        kpi_cards (fallbacks included)
+  - app/utils/text_formatter.py:
+      - EumsumStyleConverter: 서술체→음슴체 규칙 적용
+
+  Recent Fixes
+
+  - CORS duplication fixed; frontend uses same-origin proxy.
+  - Status API now resilient (always JSON, fields normalized).
+  - Download 404 mitigated by standardized save location and existence
+    polling before marking completed.
+  - Type error in title slide subtext handling fixed.
+  - Language-specific generation and Korean formatting (bullets, NFC
+    normalization) applied.
+
+  Current Status
+
+  - End-to-end generation works with:
+      - MECE-based differentiation of slides (reduced repetition)
+      - Language-aware prompts and Korean 음슴체 style
+      - Visual diversification via three_column and matrix templates where
+        applicable
+      - Stable status reporting and reliable file downloads
+
+  Known Issues / TODOs
+
+  - DesignApplicator currently focuses on styling; its layout stubs
+    (_apply_three_column_layout, _apply_matrix_layout) exist but content
+    placement is handled by template orchestrator/layout manager. If you
+    want unified styling+placement under DesignApplicator, we can wire those
+    stubs to layouts with style parameters.
+  - Heuristics for template selection can be tuned further (e.g.,
+    Recommendations → dedicated action list template with checkmarks or
+    numbered steps).
+  - Test coverage is light; adding automated tests for MECE differentiation
+    (low inter-slide similarity), three_column/matrix rendering, and
+    language handling would help.
+  - Some legacy files contain mojibake comments; safe to leave, but could be
+    cleaned for readability.
+
+  Next Steps (suggested)
+
+  - Implement DesignApplicator’s 3-column/matrix application to align style
+    (fonts/colors spacing) consistently with template manager outputs.
+  - Add tests:
+      - MECE differentiation: slides 3 and 4 similarity < 0.5 for same
+        document
+      - Language assertions: titles/bullets in Korean when language=ko
+      - Layout assertions: Market Analysis uses three_column; Strategic
+        Options uses matrix
+  - Enrich Recommendations with action list template and specific formatting
+    cues.

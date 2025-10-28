@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 3: 콘텐츠 생성</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .stage-container {
+            background-color: #ffffff;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            padding: 24px;
+            width: 600px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stage-header {
+            font-size: 20px;
+            font-weight: 600;
+            border-bottom: 1px solid #d9d9d9;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .progress-status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #595959;
+        }
+        .slide-preview-area {
+            background-color: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 16px;
+            height: 350px; /* Fixed height for stability */
+        }
+        .slide-preview-area h3 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        .slide-content {
+            font-size: 14px;
+        }
+        .slide-content .headline {
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        .slide-content .insights ul, .slide-content .actions ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 8px 0 0 0;
+        }
+        .slide-content .insights li, .slide-content .actions li {
+            margin-bottom: 6px;
+        }
+        .slide-content .actions .priority-high {
+            font-weight: bold;
+            color: #f5222d;
+        }
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .action-buttons .next-btn {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+        .action-buttons .next-btn:disabled {
+            background-color: #a0d9ff;
+            border-color: #a0d9ff;
+            cursor: not-allowed;
+        }
+        .action-buttons .pause-btn {
+            background-color: #faad14;
+            color: white;
+            border-color: #faad14;
+        }
+    </style>
+</head>
+<body>
+
+<div class="stage-container">
+    <div class="stage-header">Stage 3: 콘텐츠 생성</div>
+
+    <div class="progress-status">
+        <span id="generation-progress">🔄 생성 준비 중...</span>
+        <span id="time-remaining">⏱️ 예상 시간: --</span>
+    </div>
+
+    <div class="slide-preview-area">
+        <h3>📝 현재 생성 중인 슬라이드:</h3>
+        <div id="slide-content-preview">
+            <!-- Content will be populated by JS -->
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <button id="prev-stage-btn" class="prev-btn">← 이전 단계</button>
+        <div>
+            <button id="pause-btn" class="pause-btn">⏸️ 일시정지</button>
+            <button id="next-stage-btn" class="next-btn" disabled>→ 다음 단계</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const TOTAL_SLIDES = 15;
+        let currentSlide = 1;
+        let estimatedTime = 150; // 2분 30초
+        let intervalId;
+        let isPaused = false;
+
+        const progressElement = document.getElementById('generation-progress');
+        const timeElement = document.getElementById('time-remaining');
+        const previewElement = document.getElementById('slide-content-preview');
+        const pauseBtn = document.getElementById('pause-btn');
+        const nextBtn = document.getElementById('next-stage-btn');
+
+        const mockSlideData = {
+            "slide_number": 3,
+            "type": "Situation",
+            "headline": "아시아 시장이 2024-2027년 50% 성장하여 최대 기회 제공",
+            "insights": [
+                "Level 1: 2024년 시장 규모 $100B",
+                "Level 2: 전년 대비 15% 성장, 글로벌 평균 8% 대비 2배",
+                "Level 3: 디지털 전환이 성장의 70% 주도",
+                "Level 4: 디지털 영역 투자 확대로 추가 30% 성장 가능"
+            ],
+            "action_items": [
+                {
+                    "priority": "최우선",
+                    "text": "3개 핵심 시장 진출 가속화 (6개월 내)"
+                },
+                {
+                    "priority": "핵심",
+                    "text": "현지 파트너십 구축 50% 확대"
+                }
+            ]
+        };
+
+        function updateTimer() {
+            const minutes = Math.floor(estimatedTime / 60);
+            const seconds = estimatedTime % 60;
+            timeElement.textContent = `⏱️ 예상 시간: ${minutes}분 ${seconds.toString().padStart(2, '0')}초 남음`;
+            if (estimatedTime > 0) {
+                estimatedTime--;
+            }
+        }
+
+        function renderSlide(slideNumber) {
+            progressElement.textContent = `🔄 생성 진행: Slide ${slideNumber}/${TOTAL_SLIDES}`;
+            
+            if (slideNumber === mockSlideData.slide_number) {
+                previewElement.innerHTML = `
+                    <div class="slide-content">
+                        <strong>Slide ${mockSlideData.slide_number}: ${mockSlideData.type}</strong>
+                        <p class="headline">헤드라인: "${mockSlideData.headline}"</p>
+                        <div class="insights">
+                            <strong>인사이트:</strong>
+                            <ul>${mockSlideData.insights.map(item => `<li>• ${item}</li>`).join('')}</ul>
+                        </div>
+                        <div class="actions">
+                            <strong>액션 아이템:</strong>
+                            <ul>${mockSlideData.action_items.map(item => `<li><span class="priority-high">[${item.priority}]</span> ${item.text}</li>`).join('')}</ul>
+                        </div>
+                    </div>
+                `;
+            } else {
+                previewElement.innerHTML = `
+                    <div class="slide-content">
+                        <strong>Slide ${slideNumber}: 생성 중...</strong>
+                        <p>헤드라인, 인사이트, 액션 아이템을 생성하고 있습니다.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function startGeneration() {
+            intervalId = setInterval(() => {
+                if (currentSlide > TOTAL_SLIDES) {
+                    clearInterval(intervalId);
+                    progressElement.textContent = `✅ 생성 완료: ${TOTAL_SLIDES}/${TOTAL_SLIDES}`;
+                    nextBtn.disabled = false;
+                    pauseBtn.disabled = true;
+                    pauseBtn.textContent = "✓ 완료";
+                    return;
+                }
+                renderSlide(currentSlide);
+                updateTimer();
+                currentSlide++;
+            }, 1000);
+        }
+
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            if (isPaused) {
+                clearInterval(intervalId);
+                pauseBtn.textContent = '▶️ 계속';
+                pauseBtn.style.backgroundColor = '#40a9ff';
+            } else {
+                startGeneration();
+                pauseBtn.textContent = '⏸️ 일시정지';
+                pauseBtn.style.backgroundColor = '#faad14';
+            }
+        });
+
+        document.getElementById('prev-stage-btn').addEventListener('click', () => {
+            window.location.href = 'stage2_ui.html';
+        });
+        
+        nextBtn.addEventListener('click', () => {
+            alert('다음 단계로 진행합니다.');
+        });
+
+        // Start the process
+        startGeneration();
+    });
+</script>
+
+</body>
+</html>

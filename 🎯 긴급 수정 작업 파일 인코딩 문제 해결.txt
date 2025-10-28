@@ -1,0 +1,27 @@
+🎯 긴급 수정 작업: 파일 인코딩 문제 해결
+
+【문제】
+- UnicodeDecodeError 발생
+- Python 파일이 UTF-8이 아닌 인코딩으로 저장됨
+
+【해결 방법】
+다음 명령을 순서대로 실행해주세요:
+
+1. 프로젝트 루트로 이동:
+   cd D:\PPT_Designer_OK\mckinsey-ppt-generator
+
+2. 모든 Python 파일을 UTF-8 BOM 없이 재저장:
+   
+   # PowerShell에서 실행
+   Get-ChildItem -Path . -Recurse -Include *.py | ForEach-Object {
+       $content = Get-Content $_.FullName -Raw -Encoding UTF8
+       [System.IO.File]::WriteAllText($_.FullName, $content, (New-Object System.Text.UTF8Encoding $false))
+   }
+
+3. 특히 app/main.py 파일 확인:
+   - VSCode에서 app/main.py 열기
+   - 우측 하단의 인코딩 확인 (UTF-8이어야 함)
+   - "UTF-8 with BOM"이면 "UTF-8" (BOM 없음)으로 변경
+
+4. 서버 재시작:
+   uvicorn --app-dir mckinsey-ppt-generator app.main:app --reload --host 0.0.0.0 --port 8080

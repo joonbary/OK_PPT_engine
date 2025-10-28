@@ -1,0 +1,7 @@
+[server]
+baseUrlPath = "/"
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
