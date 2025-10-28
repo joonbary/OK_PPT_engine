@@ -10,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.v1.endpoints import ppt
 from app.api.v1 import phase_endpoints
 from app.api.v1.endpoints import upload
+from app.api.v1 import layouts as layouts_router
 from app.core.redis_client import RedisClient
 
 import asyncio
@@ -48,6 +49,7 @@ try:
 except Exception:
     pass
 app.include_router(upload.router, prefix="/api/v1", tags=["upload"])
+app.include_router(layouts_router.router, prefix="/api/v1", tags=["layouts"])
 
 @app.on_event("shutdown")
 async def shutdown_event():

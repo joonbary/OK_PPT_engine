@@ -32,4 +32,4 @@ COPY . .
 EXPOSE 8000
 
 # 서버 실행 - 타임아웃 증가 및 워커 설정
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "75", "--limit-max-requests", "1000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "75", "--limit-max-requests", "1000"]

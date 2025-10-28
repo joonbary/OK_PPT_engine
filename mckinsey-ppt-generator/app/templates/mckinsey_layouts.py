@@ -51,18 +51,33 @@ class McKinseyLayoutManager:
         logger.info(f"Applying layout: {layout_type}")
         
         try:
-            if layout_type == 'title_slide':
+            # Normalize aliases to supported internal ids
+            aliases = {
+                'title_and_content': 'content_slide',
+                'content': 'content_slide',
+                'bullet_points': 'bullet_slide',
+                'matrix': 'matrix_slide',
+                'comparison': 'three_column',
+                'split_text_chart': 'chart_slide',
+                'dual_header': 'content_slide',
+                'conclusion_slide': 'content_slide',
+                'image_slide': 'image',
+            }
+            lt = aliases.get((layout_type or '').strip(), (layout_type or '').strip())
+            if lt == 'title_slide':
                 return McKinseyLayoutManager._layout_title_slide(slide, content)
-            elif layout_type == 'chart_slide':
+            elif lt == 'chart_slide':
                 return McKinseyLayoutManager._layout_chart_slide(slide, content)
-            elif layout_type == 'two_column':
+            elif lt == 'two_column':
                 return McKinseyLayoutManager._layout_two_column(slide, content)
-            elif layout_type == 'three_column':
+            elif lt == 'three_column':
                 return McKinseyLayoutManager._layout_three_column(slide, content)
-            elif layout_type == 'matrix_slide':
+            elif lt == 'matrix_slide':
                 return McKinseyLayoutManager._layout_matrix_slide(slide, content)
-            elif layout_type == 'bullet_slide':
+            elif lt == 'bullet_slide':
                 return McKinseyLayoutManager._layout_bullet_slide(slide, content)
+            elif lt == 'image':
+                return McKinseyLayoutManager._layout_content_slide(slide, content)
             else:
                 return McKinseyLayoutManager._layout_content_slide(slide, content)
         except Exception as e:
