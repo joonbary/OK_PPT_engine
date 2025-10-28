@@ -154,7 +154,9 @@ class StrategistAgent(BaseAgentV2):
             return analysis
         except Exception as e:
             logger.error(f"Failed to parse LLM response: {e}. Response(head): {raw[:200] if isinstance(raw,str) else str(raw)[:200]}")
-            raise RuntimeError(f"Document analysis failed - LLM response parsing error: {e}")def _select_framework(self, analysis: Dict) -> Dict:
+            raise RuntimeError(f"Document analysis failed - LLM response parsing error: {e}")
+
+    def _select_framework(self, analysis: Dict) -> Dict:
         context = (analysis.get('context') or '').lower()
         purpose = (analysis.get('purpose') or '').lower()
         key = 'CUSTOM'
