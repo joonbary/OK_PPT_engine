@@ -29,8 +29,13 @@ async def phase_analyze(req: PhaseRequest):
 async def phase_structure(req: PhaseRequest):
     if not req.document:
         raise HTTPException(status_code=400, detail="document is required")
-    res = await pm.run_structure(req.project_id, req.document, req.num_slides or 10, req.language or "ko")
-    return {"project_id": req.project_id, "phase": "structure", "status": "completed", "result": res}
+    try:
+        res = await pm.run_structure(req.project_id, req.document, req.num_slides or 10, req.language or "ko")
+        return {"project_id": req.project_id, "phase": "structure", "status": "completed", "result": res}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("Structure failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"structure_failed: {str(e)}")
 
 
 @router.post("/content")
