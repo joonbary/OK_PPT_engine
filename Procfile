@@ -1,0 +1,1 @@
+web: bash -lc "cd mckinsey-ppt-generator && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
