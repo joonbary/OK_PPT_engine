@@ -2,16 +2,22 @@
 import sys
 
 bad = []
-for root, _, files in os.walk('mckinsey-ppt-generator/app'):
-    for f in files:
-        if f.endswith('.py'):
-            p = os.path.join(root, f)
-            b = open(p,'rb').read()
-            try:
-                b.decode('utf-8')
-            except Exception as e:
-                print('NON-UTF8:', p, e)
-                bad.append(p)
+roots = [
+    'mckinsey-ppt-generator/app',
+    'mckinsey-ppt-generator/frontend',
+]
+
+for scan_root in roots:
+    for root, _, files in os.walk(scan_root):
+        for f in files:
+            if f.endswith('.py'):
+                p = os.path.join(root, f)
+                b = open(p,'rb').read()
+                try:
+                    b.decode('utf-8')
+                except Exception as e:
+                    print('NON-UTF8:', p, e)
+                    bad.append(p)
 print('Bad files:', len(bad))
 
 for p in bad:
