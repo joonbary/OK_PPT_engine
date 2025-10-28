@@ -7,7 +7,6 @@ import requests
 from docx import Document
 import PyPDF2
 
-# project root onto sys.path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -18,12 +17,9 @@ except Exception:
     def render_progress_tracker(current_stage: int = 1):
         st.caption(f"Stage {current_stage} 진행 중")
 
-
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000')
 
-
 def parse_document(uploaded_file):
-    """Parse uploaded file and extract text."""
     file_type = uploaded_file.type
     text = f"'{uploaded_file.name}' 파일 내용입니다."
     try:
@@ -45,7 +41,6 @@ def parse_document(uploaded_file):
         st.error(f"파일 처리 오류 발생: {e}")
         return None
 
-
 def analyze_via_api(document_text: str, language: str = 'ko'):
     url = f"{API_BASE_URL}/api/v1/analyze"
     payload = {
@@ -53,27 +48,14 @@ def analyze_via_api(document_text: str, language: str = 'ko'):
         "document": document_text,
         "language": language or 'ko'
     }
-    try:
-        resp = requests.post(url, json=payload, timeout=(15, 240))
-        resp.raise_for_status()
-        data = resp.json()
-        # Expecting { project_id, phase, status, result }
-        if isinstance(data, dict) and data.get('status') == 'completed':
-            return data
-        else:
-            st.error(f"분석 실패: {data.get('error') or data.get('status')}")
-            return None
-    except requests.Timeout:
-        st.error("요청 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요. (최대 4분 대기)")
-        return None
-    except requests.RequestException as e:
-        st.error(f"API 요청 실패: {e}")
-        return None
+    resp = requests.post(url, json=payload, timeout=(15, 240))
+    resp.raise_for_status()
+    data = resp.json()
+    if isinstance(data, dict) and data.get('status') == 'completed':
+        return data
+    raise RuntimeError(data.get('error') or f"analyze_failed: {data}")
 
-
-# --- Streamlit UI ---
 st.set_page_config(page_title="Stage 1: 문서 분석", page_icon="🧪", layout="wide")
-
 st.title("Stage 1: 문서 분석")
 render_progress_tracker(current_stage=1)
 
@@ -94,7 +76,7 @@ with col1:
     text_input = st.text_area(
         "또는 분석할 텍스트를 직접 입력하세요.",
         height=250,
-        placeholder="예) '우리 회사의 이번 분기 매출은 20% 성장했으며...'"
+        placeholder="예) '이번 분기 매출은 20% 성장했으며...'"
     )
 
 if st.button("🧠 분석 시작", type="primary"):
@@ -110,12 +92,14 @@ if st.button("🧠 분석 시작", type="primary"):
                 content_to_analyze = text_input
 
             if content_to_analyze:
-                analysis = analyze_via_api(content_to_analyze, 'ko')
-                if analysis is not None:
+                try:
+                    analysis = analyze_via_api(content_to_analyze, 'ko')
                     st.session_state['stage1_result'] = analysis.get('result', {})
                     st.session_state['project_id'] = analysis.get('project_id')
                     st.session_state['document_text'] = content_to_analyze
                     st.success("문서 분석 완료!")
+                except Exception as e:
+                    st.error(f"분석 실패: {e}")
     else:
         st.error("파일을 업로드하거나 텍스트를 입력해야 합니다.")
 
@@ -144,7 +128,7 @@ if st.session_state['stage1_result']:
 
     if st.button("➡️ Stage 2로 이동", type="primary"):
         try:
-            st.switch_page("pages/2_🏗️_구조설계.py")
+            st.switch_page("pages/2_structure.py")
         except Exception:
             pass
 

@@ -3,7 +3,6 @@ import sys
 import os
 import requests
 
-# project root onto sys.path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -15,7 +14,6 @@ except Exception:
         st.caption(f"Stage {current_stage} 진행 중")
 
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000')
-
 
 def structure_via_api(project_id: str, document_text: str, num_slides: int, language: str = 'ko'):
     url = f"{API_BASE_URL}/api/v1/structure"
@@ -32,16 +30,14 @@ def structure_via_api(project_id: str, document_text: str, num_slides: int, lang
         return data.get('result', {})
     raise RuntimeError(data.get('error') or f"structure_failed: {data}")
 
-
 st.set_page_config(page_title="Stage 2: 구조 설계", page_icon="🧱", layout="wide")
 st.title("Stage 2: 구조 설계")
 render_progress_tracker(current_stage=2)
 
-# Stage 1 선행 확인 및 입력 준비
 if not st.session_state.get('stage1_result'):
     st.warning("⚠️ 먼저 Stage 1: 문서 분석을 완료해 주세요.")
     try:
-        st.page_link("pages/1_📄_문서분석.py", label="Stage 1로 이동")
+        st.page_link("pages/1_analyze.py", label="Stage 1로 이동")
     except Exception:
         pass
     st.stop()
@@ -79,7 +75,6 @@ if st.button("🧭 구조 설계 실행", type="primary"):
         except Exception as e:
             st.error(f"구조 설계 실패: {e}")
 
-
 if st.session_state['stage2_result']:
     st.markdown("---")
     st.subheader("설계 결과 요약")
@@ -105,3 +100,4 @@ if st.session_state['stage2_result']:
             st.switch_page("pages/3_✍️_콘텐츠생성.py")
         except Exception:
             pass
+
