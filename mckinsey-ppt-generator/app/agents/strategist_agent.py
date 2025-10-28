@@ -117,7 +117,7 @@ class StrategistAgent(BaseAgentV2):
             logger.error(f"Strategist processing failed: {e}")
             raise
     
-            async def _analyze_document(self, document: str) -> Dict:
+    async def _analyze_document(self, document: str) -> Dict:
         lang = (getattr(self, 'language', 'ko') or 'ko').lower()
         lang_inst = '모든 답변은 한국어로 작성.' if lang.startswith('ko') else 'Respond in the specified language.'
         prompt = (
