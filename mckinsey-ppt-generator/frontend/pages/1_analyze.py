@@ -65,6 +65,9 @@ if 'project_id' not in st.session_state:
     st.session_state['project_id'] = None
 if 'document_text' not in st.session_state:
     st.session_state['document_text'] = None
+if 'stage1_history' not in st.session_state:
+    # Stack of snapshots: {result, project_id, document_text}
+    st.session_state['stage1_history'] = []
 
 col1, col2 = st.columns([2, 1])
 with col1:
@@ -94,6 +97,12 @@ if st.button("🧠 분석 시작", type="primary"):
             if content_to_analyze:
                 try:
                     analysis = analyze_via_api(content_to_analyze, 'ko')
+                    # push previous snapshot for rollback
+                    st.session_state['stage1_history'].append({
+                        'result': st.session_state.get('stage1_result'),
+                        'project_id': st.session_state.get('project_id'),
+                        'document_text': st.session_state.get('document_text'),
+                    })
                     st.session_state['stage1_result'] = analysis.get('result', {})
                     st.session_state['project_id'] = analysis.get('project_id')
                     st.session_state['document_text'] = content_to_analyze
@@ -126,9 +135,19 @@ if st.session_state['stage1_result']:
             dps = [{"type": "Insight", "value": x, "context": ""} for x in dps[:20]]
         st.dataframe(dps)
 
-    if st.button("➡️ Stage 2로 이동", type="primary"):
-        try:
-            st.switch_page("pages/2_structure.py")
-        except Exception:
-            pass
-
+    cols = st.columns([1,1,2])
+    with cols[0]:
+        if st.session_state['stage1_history']:
+            if st.button("↩ 이전 결과로 롤백"):
+                snap = st.session_state['stage1_history'].pop()
+                st.session_state['stage1_result'] = snap.get('result')
+                st.session_state['project_id'] = snap.get('project_id')
+                st.session_state['document_text'] = snap.get('document_text')
+                st.toast("이전 분석 결과로 롤백했습니다.")
+                st.experimental_rerun()
+    with cols[2]:
+        if st.button("➡️ Stage 2로 이동", type="primary"):
+            try:
+                st.switch_page("pages/2_structure.py")
+            except Exception:
+                pass

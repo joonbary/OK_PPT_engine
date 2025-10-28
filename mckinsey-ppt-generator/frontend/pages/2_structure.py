@@ -15,6 +15,7 @@ except Exception:
 
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000')
 
+
 def structure_via_api(project_id: str, document_text: str, num_slides: int, language: str = 'ko'):
     url = f"{API_BASE_URL}/api/v1/structure"
     payload = {
@@ -30,10 +31,12 @@ def structure_via_api(project_id: str, document_text: str, num_slides: int, lang
         return data.get('result', {})
     raise RuntimeError(data.get('error') or f"structure_failed: {data}")
 
+
 st.set_page_config(page_title="Stage 2: 구조 설계", page_icon="🧱", layout="wide")
 st.title("Stage 2: 구조 설계")
 render_progress_tracker(current_stage=2)
 
+# Preconditions
 if not st.session_state.get('stage1_result'):
     st.warning("⚠️ 먼저 Stage 1: 문서 분석을 완료해 주세요.")
     try:
@@ -48,6 +51,8 @@ if not st.session_state.get('document_text'):
 
 if 'stage2_result' not in st.session_state:
     st.session_state['stage2_result'] = None
+if 'stage2_history' not in st.session_state:
+    st.session_state['stage2_history'] = []
 
 st.subheader("구조 설계 옵션")
 col1, col2 = st.columns(2)
@@ -68,6 +73,12 @@ if st.button("🧭 구조 설계 실행", type="primary"):
                 num_slides,
                 'ko'
             )
+            # push snapshot for rollback
+            st.session_state['stage2_history'].append({
+                'result': st.session_state.get('stage2_result'),
+                'num_slides': st.session_state.get('num_slides', None)
+            })
+            st.session_state['num_slides'] = num_slides
             st.session_state['stage2_result'] = result
             st.success("구조 설계 완료!")
         except requests.Timeout:
@@ -90,6 +101,18 @@ if st.session_state['stage2_result']:
                 st.markdown(f"- [{seg.get('category','-')}] {seg.get('content','')[:120]}...")
 
     st.subheader("슬라이드 아웃라인")
+    cols = st.columns([1,3])
+    with cols[0]:
+        if st.session_state['stage2_history']:
+            if st.button("↩ 이전 결과로 롤백"):
+                snap = st.session_state['stage2_history'].pop()
+                st.session_state['stage2_result'] = snap.get('result')
+                prior_ns = snap.get('num_slides')
+                if prior_ns:
+                    st.session_state['num_slides'] = prior_ns
+                st.toast("이전 구조 설계 결과로 롤백했습니다.")
+                st.experimental_rerun()
+
     for i, slide in enumerate(outline):
         with st.expander(f"Slide {slide.get('slide_number', i+1)}: {slide.get('type','-')} — {slide.get('content_focus') or slide.get('headline','')}"):
             new_headline = st.text_input("헤드라인 수정", value=slide.get('headline') or slide.get('content_focus',''), key=f"headline_{i}")
