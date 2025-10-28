@@ -32,18 +32,7 @@ services:
     networks:
       - ppt_network
 
-  nginx:
-    image: nginx:alpine
-    container_name: mckinsey-ppt-nginx
-    ports:
-      - "8080:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app
-    networks:
-      - ppt_network
+  # nginx service removed per request; Streamlit at 8501 is the primary UI
 
   streamlit:
     build: .

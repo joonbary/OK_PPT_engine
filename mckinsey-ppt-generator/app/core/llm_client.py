@@ -280,6 +280,12 @@ class LLMClient:
                 redis = await get_redis()
                 cached_response = await redis.get(cache_key)
                 if cached_response:
+                    # Redis layer may JSON-decode values; normalize to string
+                    if not isinstance(cached_response, str):
+                        try:
+                            cached_response = json.dumps(cached_response, ensure_ascii=False)
+                        except Exception:
+                            cached_response = str(cached_response)
                     self.logger.info(f"Cache hit for prompt (key: {cache_key[:8]}...)")
                     return cached_response
             except Exception as e:
@@ -337,11 +343,13 @@ class LLMClient:
             system_prompt=system_prompt,
             **kwargs
         )
-        
+
         # JSON 파싱 시도
         try:
             # JSON 블록 추출 (```json ... ``` 형태 처리)
-            if "```json" in response:
+            if isinstance(response, (dict, list)):
+                json_str = json.dumps(response, ensure_ascii=False)
+            elif "```json" in response:
                 json_start = response.find("```json") + 7
                 json_end = response.find("```", json_start)
                 json_str = response[json_start:json_end].strip()
